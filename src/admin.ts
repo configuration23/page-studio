@@ -12,6 +12,7 @@ export function renderAdmin(): string {
 <header>
   <span class="brand">page-studio <span>· админка</span></span>
   <select id="form-select" title="страница"></select>
+  <button class="btn" id="new-page" title="создать страницу">+ Страница</button>
   <button class="btn primary" id="save">Сохранить</button>
   <a class="btn" id="open" target="_blank" rel="noopener">Открыть страницу</a>
   <span class="spacer"></span>
@@ -28,6 +29,18 @@ export function renderAdmin(): string {
   </section>
   <aside class="panel right" id="inspector"></aside>
 </main>
+<div class="modal" id="modal" hidden>
+  <div class="modal-box">
+    <h3>Новая страница</h3>
+    <label>Адрес (slug)<input id="new-slug" placeholder="recipes" autocomplete="off"></label>
+    <label>Заголовок<input id="new-title" placeholder="Рецепты" autocomplete="off"></label>
+    <p class="modal-hint">slug попадает в имена методов: <code>recipes.heading</code>. Менять его потом нельзя.</p>
+    <div class="modal-actions">
+      <button class="btn" id="new-cancel">Отмена</button>
+      <button class="btn primary" id="new-create">Создать</button>
+    </div>
+  </div>
+</div>
 <script src="/admin.js"></script>
 </body>
 </html>`;

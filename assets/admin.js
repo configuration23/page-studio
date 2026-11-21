@@ -490,6 +490,54 @@
 
   saveBtn.addEventListener('click', save);
 
+  var modal = $('#modal');
+  var newSlug = $('#new-slug');
+  var newTitle = $('#new-title');
+
+  $('#new-page').addEventListener('click', function () {
+    newSlug.value = '';
+    newTitle.value = '';
+    modal.hidden = false;
+    newSlug.focus();
+  });
+
+  $('#new-cancel').addEventListener('click', function () {
+    modal.hidden = true;
+  });
+
+  modal.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') modal.hidden = true;
+    if (event.key === 'Enter') $('#new-create').click();
+  });
+
+  $('#new-create').addEventListener('click', function () {
+    var slug = newSlug.value.trim().toLowerCase();
+    var title = newTitle.value.trim();
+    if (!slug || !title) {
+      setStatus('нужны slug и заголовок', 'err');
+      return;
+    }
+    api('/api/v1/admin/forms', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ slug: slug, title: title })
+    })
+      .then(function () {
+        modal.hidden = true;
+        return loadForms();
+      })
+      .then(function () {
+        select.value = slug;
+        return loadForm(slug);
+      })
+      .then(function () {
+        setStatus('страница «' + slug + '» создана · метод ' + slug + '.heading', 'ok');
+      })
+      .catch(function (err) {
+        setStatus('не создалось: ' + err.message, 'err');
+      });
+  });
+
   palette.addEventListener('click', function (event) {
     var button = event.target.closest('button[data-kind]');
     if (button) addElement(button.dataset.kind);

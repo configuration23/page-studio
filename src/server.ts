@@ -459,6 +459,42 @@ app.get('/api/v1/admin/forms/:slug', async (req) => ({
   form: getForm((req.params as { slug: string }).slug),
 }));
 
+app.post('/api/v1/admin/forms', async (req) => {
+  const body = (req.body ?? {}) as { slug?: unknown; title?: unknown };
+  const slug = String(body.slug ?? '')
+    .trim()
+    .toLowerCase();
+  const title = String(body.title ?? '').trim();
+
+  if (!/^[a-z0-9][a-z0-9-]{0,40}$/.test(slug)) {
+    throw new HttpError(400, 'slug: латиница, цифры и дефис, до 40 символов');
+  }
+  if (!title) throw new HttpError(400, 'нужен заголовок');
+  if (forms.has(slug)) throw new HttpError(409, `страница «${slug}» уже есть`);
+
+  const form = formSchema.parse({
+    slug,
+    title,
+    canvas: { width: 960 },
+    elements: [
+      {
+        id: 'heading',
+        kind: 'label',
+        x: 40,
+        y: 32,
+        w: 600,
+        h: 48,
+        props: { text: title, size: 'l' },
+      },
+    ],
+  });
+
+  writeFileSync(join(config.formsDir, `${slug}.yaml`), YAML.stringify(compactForm(form)), 'utf8');
+  forms.set(slug, form);
+  log.add({ kind: 'value', page: slug, name: 'admin.create', ok: true });
+  return { form };
+});
+
 app.put('/api/v1/admin/forms/:slug', async (req) => {
   const slug = (req.params as { slug: string }).slug;
   if (!forms.has(slug)) throw new HttpError(404, `формы «${slug}» нет`);
