@@ -60,6 +60,7 @@
   var publishBtn = $('#publish');
   var draftBadge = $('#draft-badge');
   var openLink = $('#open');
+  var previewLink = $('#preview');
   var canvas = $('#canvas');
   var palette = $('#palette');
   var inspector = $('#inspector');
@@ -137,6 +138,7 @@
       state.hasDraft = Boolean(data.hasDraft);
       history.length = 0;
       openLink.href = '/p/' + slug;
+      previewLink.href = '/p/' + slug + '?draft=1';
       renderAll();
       syncDraft();
       setStatus(

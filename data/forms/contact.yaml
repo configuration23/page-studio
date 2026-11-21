@@ -1,6 +1,7 @@
 slug: contact
 title: Проверка формы
-lead: "Вторая страница портала — не про картинки. Тот же контракт: поля, кнопка, статус, и всё это обвязывается тем же демо-драйвером."
+lead: "Вторая страница портала — не про картинки. Тот же контракт: поля, кнопка,
+  статус, и всё это обвязывается тем же демо-драйвером."
 canvas:
   width: 960
 elements:
@@ -13,7 +14,6 @@ elements:
     props:
       text: Напишите нам
       size: xl
-
   - id: name
     kind: edit
     x: 40
@@ -24,7 +24,6 @@ elements:
     props:
       placeholder: Как к вам обращаться
       max: 120
-
   - id: topic
     kind: combo
     x: 480
@@ -37,7 +36,6 @@ elements:
         - Вопрос
         - Идея
         - Ошибка
-
   - id: message
     kind: memo
     x: 40
@@ -48,7 +46,6 @@ elements:
     props:
       placeholder: Свободный текст, до 800 символов
       max: 800
-
   - id: agree
     kind: check
     x: 40
@@ -56,7 +53,6 @@ elements:
     w: 420
     h: 32
     label: Понимаю, что это тестовая форма
-
   - id: send
     kind: button
     x: 40
@@ -66,7 +62,6 @@ elements:
     label: Отправить
     props:
       primary: true
-
   - id: trace
     kind: list
     x: 480
@@ -76,7 +71,6 @@ elements:
     label: Журнал обработки
     props:
       empty: Пока ничего не отправляли
-
   - id: status
     kind: status
     x: 280

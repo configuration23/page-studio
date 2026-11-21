@@ -196,10 +196,12 @@ app.get('/health', async () => ({
 }));
 
 app.get('/p/:slug', async (req, reply) => {
-  const form = getForm((req.params as { slug: string }).slug);
+  const slug = (req.params as { slug: string }).slug;
+  const query = (req.query ?? {}) as Record<string, unknown>;
+  // ?draft=1 — предпросмотр черновика: то, что ещё не опубликовано.
+  const form = query.draft === '1' ? (drafts.get(slug) ?? getForm(slug)) : getForm(slug);
   const sid = ensureSid(req, reply);
   const values = state.values(form, sid);
-  const query = (req.query ?? {}) as Record<string, unknown>;
   const footer =
     query.debug === '1' ? `${form.elements.length} элементов · сессия ${sid}` : '';
   return reply

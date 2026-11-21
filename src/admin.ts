@@ -16,6 +16,7 @@ export function renderAdmin(): string {
   <button class="btn" id="save">Сохранить</button>
   <button class="btn primary" id="publish">Опубликовать</button>
   <span id="draft-badge" class="draft-badge" hidden>черновик</span>
+  <a class="btn" id="preview" target="_blank" rel="noopener">Предпросмотр</a>
   <a class="btn" id="open" target="_blank" rel="noopener">Открыть страницу</a>
   <span class="spacer"></span>
   <span id="status"></span>
