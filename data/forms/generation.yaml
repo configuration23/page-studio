@@ -1,6 +1,7 @@
 slug: generation
 title: Генерация картинки
-lead: Промпт уходит в n8n, картинка возвращается в портал и остаётся в галерее. Поля и кнопки — это методы, их видно в инспекторе.
+lead: Промпт уходит в n8n, картинка возвращается в портал и остаётся в галерее.
+  Поля и кнопки — это методы, их видно в инспекторе.
 canvas:
   width: 960
 elements:
@@ -12,26 +13,23 @@ elements:
     h: 112
     label: Промпт
     props:
-      placeholder: "кот-астронавт, акварель, мягкий свет"
+      placeholder: кот-астронавт, акварель, мягкий свет
       max: 800
-
   - id: push
     kind: button
-    x: 660
+    x: 664
     y: 56
     w: 260
     h: 48
     label: Генерировать
     props:
       primary: true
-
   - id: status
     kind: status
     x: 660
     y: 116
     w: 260
     h: 32
-
   - id: image
     kind: image
     x: 40
@@ -39,7 +37,6 @@ elements:
     w: 440
     h: 440
     label: Результат
-
   - id: gallery
     kind: gallery
     x: 500

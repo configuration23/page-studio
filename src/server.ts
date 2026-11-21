@@ -1,6 +1,8 @@
 import { createReadStream } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { join } from 'node:path';
+import YAML from 'yaml';
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
 import { loadConfig } from './config.js';
 import { loadForms } from './forms.js';
@@ -9,7 +11,8 @@ import { StateStore } from './state.js';
 import { ImageStore } from './store.js';
 import { CallLog } from './log.js';
 import { renderNotFound, renderPage } from './render.js';
-import { EVENTS_OF, VALUE_KINDS, elementById, methodsOf, type Element, type Form } from './model.js';
+import { renderAdmin } from './admin.js';
+import { EVENTS_OF, VALUE_KINDS, elementById, formSchema, methodsOf, type Element, type Form } from './model.js';
 
 const config = loadConfig();
 const forms = loadForms(config.formsDir);
@@ -28,6 +31,7 @@ class HttpError extends Error {
   constructor(
     readonly statusCode: number,
     message: string,
+    readonly issues?: string[],
   ) {
     super(message);
   }
@@ -162,7 +166,8 @@ app.setErrorHandler((error, _req, reply) => {
   const status = error instanceof HttpError ? error.statusCode : 500;
   if (status >= 500) console.error(error);
   const message = error instanceof Error ? error.message : String(error);
-  reply.code(status).send({ error: message });
+  const issues = error instanceof HttpError ? error.issues : undefined;
+  reply.code(status).send(issues ? { error: message, issues } : { error: message });
 });
 
 app.get('/', async (_req, reply) => {
@@ -391,6 +396,91 @@ app.get('/api/v1/forms/:slug/stream', (req, reply) => {
     clearInterval(ping);
     unsubscribe();
   });
+});
+
+/** Убирает из формы значения по умолчанию, чтобы YAML оставался читаемым. */
+function compactForm(form: Form) {
+  return {
+    slug: form.slug,
+    title: form.title,
+    ...(form.lead ? { lead: form.lead } : {}),
+    canvas: { width: form.canvas.width },
+    elements: form.elements.map((el) => {
+      const out: Record<string, unknown> = {
+        id: el.id,
+        kind: el.kind,
+        x: el.x,
+        y: el.y,
+        w: el.w,
+        h: el.h,
+      };
+      if (el.label) out.label = el.label;
+      if (el.hidden) out.hidden = true;
+      const props = Object.fromEntries(
+        Object.entries(el.props).filter(([, value]) => value !== undefined),
+      );
+      if (Object.keys(props).length > 0) out.props = props;
+      return out;
+    }),
+  };
+}
+
+app.get('/admin', async (_req, reply) => {
+  return reply.type('text/html; charset=utf-8').send(renderAdmin());
+});
+
+app.get('/admin.css', async (_req, reply) => {
+  return reply
+    .type('text/css; charset=utf-8')
+    .header('cache-control', 'no-cache')
+    .send(readFileSync(join(process.cwd(), 'assets', 'admin.css'), 'utf8'));
+});
+
+app.get('/admin.js', async (_req, reply) => {
+  return reply
+    .type('text/javascript; charset=utf-8')
+    .header('cache-control', 'no-cache')
+    .send(readFileSync(join(process.cwd(), 'assets', 'admin.js'), 'utf8'));
+});
+
+app.get('/api/v1/admin/forms', async () => ({
+  forms: [...forms.values()].map((form) => ({
+    slug: form.slug,
+    title: form.title,
+    elements: form.elements.length,
+  })),
+}));
+
+app.get('/api/v1/admin/forms/:slug', async (req) => ({
+  form: getForm((req.params as { slug: string }).slug),
+}));
+
+app.put('/api/v1/admin/forms/:slug', async (req) => {
+  const slug = (req.params as { slug: string }).slug;
+  if (!forms.has(slug)) throw new HttpError(404, `формы «${slug}» нет`);
+
+  const body = (req.body ?? {}) as { form?: unknown };
+  const parsed = formSchema.safeParse(body.form);
+  if (!parsed.success) {
+    const issues = parsed.error.issues.map(
+      (issue) => `${issue.path.join('.') || '(корень)'}: ${issue.message}`,
+    );
+    throw new HttpError(400, 'схема не прошла', issues);
+  }
+
+  const form = parsed.data;
+  if (form.slug !== slug) {
+    throw new HttpError(400, `slug нельзя менять: было «${slug}», стало «${form.slug}»`);
+  }
+
+  writeFileSync(
+    join(config.formsDir, `${slug}.yaml`),
+    YAML.stringify(compactForm(form)),
+    'utf8',
+  );
+  forms.set(slug, form);
+  log.add({ kind: 'value', page: slug, name: 'admin.save', ok: true });
+  return { ok: true, methods: methodsOf(form).map((method) => method.name) };
 });
 
 app.get('/api/v1/log', async (req) => {
