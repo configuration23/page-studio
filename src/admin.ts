@@ -13,7 +13,9 @@ export function renderAdmin(): string {
   <span class="brand">page-studio <span>· админка</span></span>
   <select id="form-select" title="страница"></select>
   <button class="btn" id="new-page" title="создать страницу">+ Страница</button>
-  <button class="btn primary" id="save">Сохранить</button>
+  <button class="btn" id="save">Сохранить</button>
+  <button class="btn primary" id="publish">Опубликовать</button>
+  <span id="draft-badge" class="draft-badge" hidden>черновик</span>
   <a class="btn" id="open" target="_blank" rel="noopener">Открыть страницу</a>
   <span class="spacer"></span>
   <span id="status"></span>

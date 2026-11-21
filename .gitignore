@@ -7,4 +7,7 @@ data/state/
 data/generations/*
 !data/generations/.gitkeep
 
+# Черновики живут до публикации и на диск публикации не попадают.
+data/forms/*.draft.yaml
+
 *.log

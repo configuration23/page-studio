@@ -1,11 +1,11 @@
 import { createReadStream } from 'node:fs';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { join } from 'node:path';
 import YAML from 'yaml';
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
 import { loadConfig } from './config.js';
-import { loadForms } from './forms.js';
+import { draftFile, loadForms, publishedFile } from './forms.js';
 import { bindingKey, loadBindings, pushEvent } from './bindings.js';
 import { StateStore } from './state.js';
 import { ImageStore } from './store.js';
@@ -16,6 +16,7 @@ import { EVENTS_OF, VALUE_KINDS, elementById, formSchema, methodsOf, type Elemen
 
 const config = loadConfig();
 const forms = loadForms(config.formsDir);
+const drafts = loadForms(config.formsDir, { drafts: true });
 const bindings = loadBindings(join(config.dataDir, 'bindings.yaml'));
 const state = new StateStore(config.dataDir);
 const images = new ImageStore(config.dataDir);
@@ -447,17 +448,30 @@ app.get('/admin.js', async (_req, reply) => {
     .send(readFileSync(join(process.cwd(), 'assets', 'admin.js'), 'utf8'));
 });
 
+/** Для админки отдаём черновик, если он есть: правки не должны ждать публикации. */
+function adminForm(slug: string): Form {
+  const form = drafts.get(slug) ?? forms.get(slug);
+  if (!form) throw new HttpError(404, `формы «${slug}» нет`);
+  return form;
+}
+
 app.get('/api/v1/admin/forms', async () => ({
-  forms: [...forms.values()].map((form) => ({
-    slug: form.slug,
-    title: form.title,
-    elements: form.elements.length,
-  })),
+  forms: [...forms.values()].map((published) => {
+    const draft = drafts.get(published.slug);
+    const shown = draft ?? published;
+    return {
+      slug: published.slug,
+      title: shown.title,
+      elements: shown.elements.length,
+      hasDraft: Boolean(draft),
+    };
+  }),
 }));
 
-app.get('/api/v1/admin/forms/:slug', async (req) => ({
-  form: getForm((req.params as { slug: string }).slug),
-}));
+app.get('/api/v1/admin/forms/:slug', async (req) => {
+  const slug = (req.params as { slug: string }).slug;
+  return { form: adminForm(slug), hasDraft: drafts.has(slug) };
+});
 
 app.post('/api/v1/admin/forms', async (req) => {
   const body = (req.body ?? {}) as { slug?: unknown; title?: unknown };
@@ -514,13 +528,37 @@ app.put('/api/v1/admin/forms/:slug', async (req) => {
   }
 
   writeFileSync(
-    join(config.formsDir, `${slug}.yaml`),
+    draftFile(config.formsDir, slug),
     YAML.stringify(compactForm(form)),
     'utf8',
   );
-  forms.set(slug, form);
+  drafts.set(slug, form);
   log.add({ kind: 'value', page: slug, name: 'admin.save', ok: true });
-  return { ok: true, methods: methodsOf(form).map((method) => method.name) };
+  return { ok: true, draft: true, methods: methodsOf(form).map((method) => method.name) };
+});
+
+app.post('/api/v1/admin/forms/:slug/publish', async (req) => {
+  const slug = (req.params as { slug: string }).slug;
+  const draft = drafts.get(slug);
+  const source = draft ?? forms.get(slug);
+  if (!source) throw new HttpError(404, `формы «${slug}» нет`);
+
+  writeFileSync(
+    publishedFile(config.formsDir, slug),
+    YAML.stringify(compactForm(source)),
+    'utf8',
+  );
+  forms.set(slug, source);
+  if (draft) {
+    drafts.delete(slug);
+    try {
+      unlinkSync(draftFile(config.formsDir, slug));
+    } catch {
+      // черновик уже убран — не беда
+    }
+  }
+  log.add({ kind: 'value', page: slug, name: 'admin.publish', ok: true });
+  return { ok: true, methods: methodsOf(source).map((method) => method.name) };
 });
 
 app.get('/api/v1/log', async (req) => {

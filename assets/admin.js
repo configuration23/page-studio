@@ -24,7 +24,7 @@
   var VALUE_KINDS = ['edit', 'memo', 'combo', 'check', 'image', 'gallery', 'status'];
   var SNAP = 8;
 
-  var state = { slug: null, form: null, selected: null, dirty: false, dragging: false };
+  var state = { slug: null, form: null, selected: null, dirty: false, dragging: false, hasDraft: false };
   var history = [];
   var HISTORY_LIMIT = 20;
   var armSnapshot = true;
@@ -56,6 +56,8 @@
   var select = $('#form-select');
   var status = $('#status');
   var saveBtn = $('#save');
+  var publishBtn = $('#publish');
+  var draftBadge = $('#draft-badge');
   var openLink = $('#open');
   var canvas = $('#canvas');
   var palette = $('#palette');
@@ -90,6 +92,15 @@
     setStatus('есть несохранённые правки');
   }
 
+  function syncDraft() {
+    draftBadge.hidden = !state.hasDraft;
+  }
+
+  function syncOption() {
+    var option = select.querySelector('option[value="' + state.slug + '"]');
+    if (option && state.form) option.textContent = state.form.title + ' (' + state.slug + ')';
+  }
+
   function selected() {
     if (!state.form || !state.selected) return null;
     for (var i = 0; i < state.form.elements.length; i++) {
@@ -122,9 +133,16 @@
       state.form = data.form;
       state.selected = data.form.elements.length ? data.form.elements[0].id : null;
       state.dirty = false;
+      state.hasDraft = Boolean(data.hasDraft);
+      history.length = 0;
       openLink.href = '/p/' + slug;
       renderAll();
-      setStatus('загружено: ' + slug + ' · элементов ' + state.form.elements.length);
+      syncDraft();
+      setStatus(
+        state.hasDraft
+          ? 'черновик отличается от опубликованной страницы'
+          : 'загружено: ' + slug + ' · элементов ' + state.form.elements.length
+      );
     });
   }
 
@@ -467,14 +485,39 @@
     })
       .then(function () {
         state.dirty = false;
+        state.hasDraft = true;
         history.length = 0;
-        setStatus('сохранено · ' + new Date().toLocaleTimeString(), 'ok');
+        syncDraft();
+        syncOption();
+        setStatus('сохранено в черновик · ' + new Date().toLocaleTimeString(), 'ok');
       })
       .catch(function (err) {
         setStatus('не сохранилось: ' + err.message, 'err');
       })
       .then(function () {
         saveBtn.disabled = false;
+      });
+  }
+
+  function publish() {
+    if (!state.form) return Promise.resolve();
+    if (state.dirty) {
+      setStatus('сначала сохраните черновик, потом публикуйте', 'err');
+      return Promise.resolve();
+    }
+    publishBtn.disabled = true;
+    return api('/api/v1/admin/forms/' + state.slug + '/publish', { method: 'POST' })
+      .then(function () {
+        state.hasDraft = false;
+        syncDraft();
+        syncOption();
+        setStatus('опубликовано · ' + new Date().toLocaleTimeString(), 'ok');
+      })
+      .catch(function (err) {
+        setStatus('не опубликовалось: ' + err.message, 'err');
+      })
+      .then(function () {
+        publishBtn.disabled = false;
       });
   }
 
@@ -489,6 +532,7 @@
   });
 
   saveBtn.addEventListener('click', save);
+  publishBtn.addEventListener('click', publish);
 
   var modal = $('#modal');
   var newSlug = $('#new-slug');

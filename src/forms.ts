@@ -18,19 +18,33 @@ function parseForm(file: string): Form {
       .join('\n');
     throw new Error(`${basename(file)}: форма не прошла схему\n${issues}`);
   }
-  if (parsed.data.slug !== basename(file).replace(/\.ya?ml$/, '')) {
+  const expected = basename(file).replace(/\.draft\.ya?ml$/, '').replace(/\.ya?ml$/, '');
+  if (parsed.data.slug !== expected) {
     throw new Error(`${basename(file)}: slug «${parsed.data.slug}» не совпадает с именем файла`);
   }
   return parsed.data;
 }
 
-export function loadForms(dir: string): Map<string, Form> {
+export function isDraftFile(file: string): boolean {
+  return /\.draft\.ya?ml$/.test(file);
+}
+
+export function loadForms(dir: string, options: { drafts?: boolean } = {}): Map<string, Form> {
+  const drafts = options.drafts === true;
   const forms = new Map<string, Form>();
-  const files = readdirSync(dir).filter((f) => /\.ya?ml$/.test(f));
-  if (files.length === 0) throw new Error(`В ${dir} нет ни одной формы`);
+  const files = readdirSync(dir).filter((f) => /\.ya?ml$/.test(f) && isDraftFile(f) === drafts);
+  if (files.length === 0 && !drafts) throw new Error(`В ${dir} нет ни одной формы`);
   for (const file of files) {
     const form = parseForm(join(dir, file));
     forms.set(form.slug, form);
   }
   return forms;
+}
+
+export function draftFile(dir: string, slug: string): string {
+  return join(dir, `${slug}.draft.yaml`);
+}
+
+export function publishedFile(dir: string, slug: string): string {
+  return join(dir, `${slug}.yaml`);
 }
