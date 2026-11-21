@@ -114,7 +114,28 @@
       setImage(node, value);
     } else if (kind === 'gallery') {
       setGallery(node, value);
+    } else if (kind === 'list') {
+      setList(node, value);
     }
+  }
+
+  function setList(node, value) {
+    var list = node.querySelector('.items');
+    if (!list) return;
+    var items = Array.isArray(value) ? value : [];
+    list.innerHTML = '';
+    if (!items.length) {
+      var empty = document.createElement('li');
+      empty.className = 'empty';
+      empty.textContent = list.getAttribute('data-empty') || 'Пока пусто';
+      list.appendChild(empty);
+      return;
+    }
+    items.forEach(function (text) {
+      var li = document.createElement('li');
+      li.textContent = text;
+      list.appendChild(li);
+    });
   }
 
   function post(path, body) {

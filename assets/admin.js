@@ -10,6 +10,7 @@
     { kind: 'button', name: 'Кнопка', ic: '⚡', props: ['primary'] },
     { kind: 'image', name: 'Картинка', ic: '▣', props: [] },
     { kind: 'gallery', name: 'Галерея', ic: '▦', props: ['limit', 'empty'] },
+    { kind: 'list', name: 'Список', ic: '≡', props: ['empty'] },
     { kind: 'status', name: 'Статус', ic: '◉', props: [] }
   ];
 
@@ -179,6 +180,8 @@
         return label + '<div class="box">картинка</div>';
       case 'gallery':
         return label + '<div class="box galbox"><i></i><i></i><i></i></div>';
+      case 'list':
+        return label + '<div class="box" style="display:block;text-align:left">• строка<br>• строка<br>• строка</div>';
       case 'status':
         return '<div class="box badgebox">◉ статус</div>';
       default:
@@ -329,6 +332,7 @@
     if (kind === 'combo') return { options: ['Вариант 1', 'Вариант 2'] };
     if (kind === 'button') return { primary: true };
     if (kind === 'gallery') return { limit: 12, empty: 'Пока пусто' };
+    if (kind === 'list') return { empty: 'Пока пусто' };
     return {};
   }
 
@@ -336,6 +340,7 @@
     if (kind === 'button') return { w: 200, h: 48 };
     if (kind === 'image') return { w: 320, h: 320 };
     if (kind === 'gallery') return { w: 360, h: 320 };
+    if (kind === 'list') return { w: 360, h: 200 };
     if (kind === 'label') return { w: 400, h: 48 };
     if (kind === 'status') return { w: 220, h: 32 };
     if (kind === 'check') return { w: 240, h: 32 };

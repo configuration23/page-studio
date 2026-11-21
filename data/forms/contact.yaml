@@ -67,6 +67,16 @@ elements:
     props:
       primary: true
 
+  - id: trace
+    kind: list
+    x: 480
+    y: 336
+    w: 380
+    h: 100
+    label: Журнал обработки
+    props:
+      empty: Пока ничего не отправляли
+
   - id: status
     kind: status
     x: 280

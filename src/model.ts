@@ -10,6 +10,7 @@ export const KINDS = [
   'button',
   'image',
   'gallery',
+  'list',
   'status',
 ] as const;
 
@@ -23,6 +24,7 @@ export const VALUE_KINDS: ReadonlySet<Kind> = new Set<Kind>([
   'check',
   'image',
   'gallery',
+  'list',
   'status',
 ]);
 

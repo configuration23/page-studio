@@ -97,6 +97,14 @@ function renderInner(el: Element, value: unknown, items: GalleryItem[]): string 
       const empty = `<div class="empty">${escapeHtml(p.empty ?? 'Пока пусто')}</div>`;
       return `${label}<div class="gal" data-empty="${escapeHtml(p.empty ?? 'Пока пусто')}">${shown.length ? cards : empty}</div>`;
     }
+    case 'list': {
+      const items = Array.isArray(value) ? (value as string[]) : [];
+      const list = items
+        .map((item) => `<li>${escapeHtml(item)}</li>`)
+        .join('');
+      const empty = `<li class="empty">${escapeHtml(p.empty ?? 'Пока пусто')}</li>`;
+      return `${label}<ul class="items" data-empty="${escapeHtml(p.empty ?? 'Пока пусто')}">${items.length ? list : empty}</ul>`;
+    }
     case 'status': {
       const status = (value ?? {}) as StatusValue;
       const state = status.state ?? 'idle';

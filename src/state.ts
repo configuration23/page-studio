@@ -26,6 +26,9 @@ function initial(form: Form): Values {
       case 'image':
         values[el.id] = null;
         break;
+      case 'list':
+        values[el.id] = [];
+        break;
       case 'status':
         values[el.id] = { state: 'idle', text: '' } satisfies StatusValue;
         break;
@@ -96,7 +99,16 @@ export class StateStore {
     }
     let values = sessions.get(sid);
     if (!values) {
-      values = this.load(form.slug, sid) ?? initial(form);
+      // Форма могла измениться с прошлого визита: новые элементы получают
+      // начальные значения, удалённые — исчезают.
+      const base = initial(form);
+      const loaded = this.load(form.slug, sid);
+      if (loaded) {
+        for (const key of Object.keys(base)) {
+          if (key in loaded) base[key] = loaded[key];
+        }
+      }
+      values = base;
       sessions.set(sid, values);
     }
     return values;

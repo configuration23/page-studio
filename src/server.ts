@@ -136,6 +136,14 @@ function normalizeValue(el: Element, raw: unknown): unknown {
       }
       return { state: status, text: typeof value.text === 'string' ? value.text.slice(0, 300) : '' };
     }
+    case 'list': {
+      if (!Array.isArray(raw)) throw new HttpError(400, `«${el.id}»: ожидал массив строк`);
+      if (raw.length > 100) throw new HttpError(400, `«${el.id}»: не больше 100 строк`);
+      return raw.map((item) => {
+        if (typeof item !== 'string') throw new HttpError(400, `«${el.id}»: только строки`);
+        return item.slice(0, 300);
+      });
+    }
     case 'combo': {
       const options = el.props.options ?? [];
       if (typeof raw !== 'string' || !options.includes(raw)) {

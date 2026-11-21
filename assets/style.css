@@ -126,6 +126,16 @@ body {
 .gal .card:hover img { transform: scale(1.04); }
 .gal .empty { grid-column: 1 / -1; color: #98a2b3; font-size: 13px; padding: 10px 2px; }
 
+.items {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0 0 0 20px;
+  overflow: auto;
+}
+.items li { margin-bottom: 6px; }
+.items li.empty { list-style: none; margin-left: -20px; color: #98a2b3; font-size: 13px; }
+
 .badge {
   display: inline-flex;
   align-items: center;

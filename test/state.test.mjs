@@ -56,3 +56,28 @@ test('неизвестное значение не записать', () => {
   const store = new StateStore(mkdtempSync(join(tmpdir(), 'ps-')));
   assert.throws(() => store.set(form, 'sid00001', 'нет_такого', 1), /нет значения/);
 });
+
+test('новый элемент появляется у старой сессии, удалённый — исчезает', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ps-'));
+  const before = formSchema.parse({
+    slug: 'gen',
+    title: 'Тест',
+    elements: [{ id: 'prompt', kind: 'memo', x: 0, y: 0, w: 300, h: 80 }],
+  });
+  const first = new StateStore(dir);
+  first.set(before, 'sid00001', 'prompt', 'старое');
+
+  const after = formSchema.parse({
+    slug: 'gen',
+    title: 'Тест',
+    elements: [
+      { id: 'prompt', kind: 'memo', x: 0, y: 0, w: 300, h: 80 },
+      { id: 'trace', kind: 'list', x: 0, y: 100, w: 300, h: 120 },
+    ],
+  });
+  const second = new StateStore(dir);
+  const values = second.values(after, 'sid00001');
+  assert.equal(values.prompt, 'старое');
+  assert.deepEqual(values.trace, []);
+  second.set(after, 'sid00001', 'trace', ['строка']);
+});

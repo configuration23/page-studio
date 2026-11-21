@@ -37,6 +37,7 @@ elements:
 | `button` | кнопка | — | `on_click` | — |
 | `image` | одна картинка | `form.id` | — | `form.post_id` |
 | `gallery` | лента картинок | `form.id` | — | `form.post_id` |
+| `list` | список строк | `form.id` | — | `form.post_id` |
 | `status` | состояние | `form.id` | — | `form.post_id` |
 
 Правило имён, одно на все виды:

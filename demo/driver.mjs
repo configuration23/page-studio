@@ -154,6 +154,14 @@ async function setStatus(page, sid, state, text) {
   });
 }
 
+async function postList(page, sid, id, items) {
+  await call(`/api/v1/forms/${page}/values/${encodeURIComponent(id)}?sid=${encodeURIComponent(sid)}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ value: items }),
+  });
+}
+
 async function postImage(page, sid, note) {
   const encoded = encodeURIComponent(String(note || '').slice(0, 300));
   await call(`/api/v1/forms/${page}/values/image?sid=${encodeURIComponent(sid)}&note=${encoded}`, {
@@ -185,13 +193,21 @@ async function runJob(payload) {
   const kinds = manifest.elements.map((item) => item.kind);
   const hasImage = kinds.includes('image');
   const hasStatus = kinds.includes('status');
+  const listId = manifest.elements.find((item) => item.kind === 'list')?.id;
   const note = pickNote(payload.values);
+  const startedAt = Date.now();
 
   if (hasStatus) await setStatus(page, sid, 'queued', 'принято демо-драйвером');
   await sleep(500);
   if (hasStatus) await setStatus(page, sid, 'running', hasImage ? 'рисует' : 'в работе');
   await sleep(WORK_MS);
   if (hasImage) await postImage(page, sid, note);
+  if (listId) {
+    await postList(page, sid, listId, [
+      'Демо-драйвер: событие получено',
+      `Демо-драйвер: работа заняла ${((Date.now() - startedAt) / 1000).toFixed(1)} с`,
+    ]);
+  }
   if (hasStatus) await setStatus(page, sid, 'done', 'готово');
 }
 
