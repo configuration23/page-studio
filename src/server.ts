@@ -20,7 +20,7 @@ const drafts = loadForms(config.formsDir, { drafts: true });
 const bindings = loadBindings(join(config.dataDir, 'bindings.yaml'));
 const state = new StateStore(config.dataDir);
 const images = new ImageStore(config.dataDir);
-const log = new CallLog(200);
+const log = new CallLog(200, join(config.logsDir, 'calls.jsonl'));
 
 const SID_RE = /^[a-f0-9]{8,32}$/;
 const STATUS_STATES = ['idle', 'queued', 'running', 'done', 'failed'];
@@ -191,9 +191,12 @@ app.get('/p/:slug', async (req, reply) => {
   const form = getForm((req.params as { slug: string }).slug);
   const sid = ensureSid(req, reply);
   const values = state.values(form, sid);
+  const query = (req.query ?? {}) as Record<string, unknown>;
+  const footer =
+    query.debug === '1' ? `${form.elements.length} элементов · сессия ${sid}` : '';
   return reply
     .type('text/html; charset=utf-8')
-    .send(renderPage(form, values, galleriesOf(form), `${form.elements.length} элементов · сессия ${sid}`));
+    .send(renderPage(form, values, galleriesOf(form), footer));
 });
 
 app.get('/media/:id', async (req, reply) => {

@@ -11,3 +11,4 @@ data/generations/*
 data/forms/*.draft.yaml
 
 *.log
+logs/

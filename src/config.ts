@@ -27,6 +27,7 @@ export type Config = {
   host: string;
   dataDir: string;
   formsDir: string;
+  logsDir: string;
   token: string;
   maxImageBytes: number;
   publicUrl: string;
@@ -46,6 +47,7 @@ export function loadConfig(): Config {
     host: process.env.HOST ?? '127.0.0.1',
     dataDir: process.env.DATA_DIR ?? 'data',
     formsDir: process.env.FORMS_DIR ?? 'data/forms',
+    logsDir: process.env.LOGS_DIR ?? 'logs',
     token,
     maxImageBytes: int(process.env.MAX_IMAGE_BYTES, 20 * 1024 * 1024),
     publicUrl: process.env.PUBLIC_URL ?? `http://127.0.0.1:${port}`,

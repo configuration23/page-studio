@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Form } from './model.js';
 
@@ -46,10 +46,32 @@ export class StateStore {
   private readonly emitter = new EventEmitter();
   private version = 0;
 
-  constructor(dataDir: string) {
+  constructor(
+    dataDir: string,
+    private readonly maxAgeDays = 30,
+  ) {
     this.dir = join(dataDir, 'state');
     mkdirSync(this.dir, { recursive: true });
     this.emitter.setMaxListeners(0);
+    this.cleanup();
+  }
+
+  /** Сессии копятся с каждого браузера: старые снимки убираем при старте. */
+  private cleanup(): void {
+    const cutoff = Date.now() - this.maxAgeDays * 24 * 60 * 60 * 1000;
+    try {
+      for (const file of readdirSync(this.dir)) {
+        if (!file.endsWith('.json')) continue;
+        const path = join(this.dir, file);
+        try {
+          if (statSync(path).mtimeMs < cutoff) unlinkSync(path);
+        } catch {
+          // файл занят или уже убран — не мешает
+        }
+      }
+    } catch {
+      // каталога нет — чистить нечего
+    }
   }
 
   private key(slug: string, sid: string): string {
