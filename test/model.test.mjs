@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { formSchema, methodsOf } from '../dist/model.js';
+import { formSchema, methodsOf, resolveElement } from '../dist/model.js';
 
 const base = { slug: 'gen', title: 'Тест', canvas: { width: 960 } };
 
@@ -67,4 +67,39 @@ test('combo без вариантов не проходит схему', () => {
 
 test('id должен быть пригоден для имени метода', () => {
   assert.throws(() => parse([{ id: 'Промпт', kind: 'edit', x: 0, y: 0, w: 200, h: 40 }]));
+});
+
+test('алиас ведёт к текущему элементу', () => {
+  const form = formSchema.parse({
+    ...base,
+    elements: [{ id: 'text', kind: 'memo', x: 0, y: 0, w: 200, h: 40 }],
+    aliases: { prompt: 'text' },
+  });
+  assert.equal(resolveElement(form, 'text')?.id, 'text');
+  assert.equal(resolveElement(form, 'prompt')?.id, 'text');
+  assert.equal(resolveElement(form, 'nope'), undefined);
+});
+
+test('алиас на несуществующий элемент не проходит схему', () => {
+  assert.throws(
+    () =>
+      formSchema.parse({
+        ...base,
+        elements: [{ id: 'text', kind: 'memo', x: 0, y: 0, w: 200, h: 40 }],
+        aliases: { prompt: 'nope' },
+      }),
+    /несуществующ/,
+  );
+});
+
+test('алиас не может совпадать с именем элемента', () => {
+  assert.throws(
+    () =>
+      formSchema.parse({
+        ...base,
+        elements: [{ id: 'prompt', kind: 'memo', x: 0, y: 0, w: 200, h: 40 }],
+        aliases: { prompt: 'prompt' },
+      }),
+    /совпадает/,
+  );
 });

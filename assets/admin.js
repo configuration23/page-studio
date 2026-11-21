@@ -316,6 +316,7 @@
   function nextId(kind) {
     var taken = {};
     state.form.elements.forEach(function (el) { taken[el.id] = true; });
+    Object.keys(state.form.aliases || {}).forEach(function (from) { taken[from] = true; });
     if (!taken[kind]) return kind;
     var n = 2;
     while (taken[kind + n]) n++;
@@ -385,8 +386,14 @@
 
   // --- инспектор ---------------------------------------------------------------
 
-  function methodsFor(el) {
-    var list = [];
+  function aliasesOf(id) {
+    var aliases = state.form.aliases || {};
+    return Object.keys(aliases).filter(function (from) {
+      return aliases[from] === id;
+    });
+  }
+
+  function methodsFor(el) {    var list = [];
     var base = state.slug + '.' + el.id;
     if (VALUE_KINDS.indexOf(el.kind) >= 0) {
       list.push({ name: base, kind: 'get', title: 'прочитать' });
@@ -462,6 +469,11 @@
         '<button data-copy="' + escapeHtml(method.name) + '">копировать</button></div>';
     });
     html += '<div class="muted">Это то, что обвязывается в n8n. Событие несёт значения всех полей.</div></div>';
+
+    var old = aliasesOf(el.id);
+    if (old.length) {
+      html += '<div class="muted">старые имена работают: <b>' + escapeHtml(old.join(', ')) + '</b></div>';
+    }
 
     inspector.innerHTML = html;
   }
@@ -671,12 +683,20 @@
     if (next === el.id) return;
 
     snapshot();
+    var previous = el.id;
+    var aliases = state.form.aliases || (state.form.aliases = {});
+    Object.keys(aliases).forEach(function (from) {
+      if (aliases[from] === previous) aliases[from] = next;
+    });
+    // имя снова занято элементом — алиас на него больше не нужен
+    if (aliases[next] !== undefined) delete aliases[next];
+    aliases[previous] = next;
     el.id = next;
     state.selected = next;
     renderCanvas();
     renderInspector();
     markDirty();
-    setStatus('переименовано в «' + next + '» · метод ' + state.slug + '.' + next);
+    setStatus('переименовано в «' + next + '» · старое имя «' + previous + '» осталось работать');
   });
 
   document.addEventListener('keydown', function (event) {

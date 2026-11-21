@@ -74,6 +74,8 @@ export const formSchema = z
       .object({ width: z.number().int().min(320).max(1920).default(960) })
       .default({ width: 960 }),
     elements: z.array(elementSchema).min(1).max(40),
+    /** Старые имена элементов: `{ "prompt": "text" }` — метод жив, пока алиас жив. */
+    aliases: z.record(z.string(), z.string()).default({}),
   })
   .superRefine((form, ctx) => {
     const seen = new Set<string>();
@@ -98,6 +100,32 @@ export const formSchema = z
           code: z.ZodIssueCode.custom,
           path: ['elements', i, 'props', 'options'],
           message: 'combo без options нечего показывать',
+        });
+      }
+    }
+
+    for (const [from, to] of Object.entries(form.aliases)) {
+      const idLike = /^[a-z][a-z0-9_]{0,30}$/;
+      if (!idLike.test(from) || !idLike.test(to)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['aliases', from],
+          message: 'алиас и его цель — как id: латиница, цифры, _',
+        });
+        continue;
+      }
+      if (seen.has(from)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['aliases', from],
+          message: `алиас «${from}» совпадает с именем элемента`,
+        });
+      }
+      if (!seen.has(to)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['aliases', from],
+          message: `алиас «${from}» указывает на несуществующий «${to}»`,
         });
       }
     }
@@ -139,4 +167,18 @@ export function methodsOf(form: Form): Method[] {
 
 export function elementById(form: Form, id: string): Element | undefined {
   return form.elements.find((el) => el.id === id);
+}
+
+/** Ищем по текущему имени, затем по старым: переименование не должно рвать обвязку. */
+export function resolveElement(form: Form, id: string): Element | undefined {
+  const direct = elementById(form, id);
+  if (direct) return direct;
+  const target = form.aliases[id];
+  return target ? elementById(form, target) : undefined;
+}
+
+export function aliasesOf(form: Form, id: string): string[] {
+  return Object.entries(form.aliases)
+    .filter(([, target]) => target === id)
+    .map(([from]) => from);
 }

@@ -12,7 +12,7 @@ import { ImageStore } from './store.js';
 import { CallLog } from './log.js';
 import { renderIndex, renderNotFound, renderPage } from './render.js';
 import { renderAdmin } from './admin.js';
-import { EVENTS_OF, VALUE_KINDS, elementById, formSchema, methodsOf, type Element, type Form } from './model.js';
+import { EVENTS_OF, VALUE_KINDS, elementById, formSchema, methodsOf, resolveElement, type Element, type Form } from './model.js';
 
 const config = loadConfig();
 const forms = loadForms(config.formsDir);
@@ -107,7 +107,7 @@ function getForm(slug: string): Form {
 }
 
 function getElement(form: Form, id: string): Element {
-  const el = elementById(form, id);
+  const el = resolveElement(form, id);
   if (!el) throw new HttpError(404, `в форме «${form.slug}» нет элемента «${id}»`);
   return el;
 }
@@ -226,6 +226,7 @@ app.get('/api/v1/forms/:slug/manifest', async (req) => {
       methods: methods.filter((m) => m.elementId === el.id).map((m) => ({ name: m.name, kind: m.kind })),
     })),
     methods,
+    aliases: form.aliases,
     bindings: [...bindings.entries()]
       .filter(([key]) => key.startsWith(`${form.slug}/`))
       .map(([on, url]) => ({ on, url })),
@@ -430,6 +431,9 @@ function compactForm(form: Form) {
       if (Object.keys(props).length > 0) out.props = props;
       return out;
     }),
+    ...(Object.keys(form.aliases).length > 0
+      ? { aliases: { ...form.aliases } }
+      : {}),
   };
 }
 
