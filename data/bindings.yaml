@@ -2,3 +2,7 @@
 # URL вебхука — секрет, поэтому здесь, а не в форме: форму можно экспортировать.
 - on: generation/on_click/push
   url: http://127.0.0.1:7100/webhook/gen-push
+
+# Вторая страница ходит в тот же драйвер: контракт общий, страница — любая.
+- on: contact/on_click/send
+  url: http://127.0.0.1:7100/webhook/gen-push

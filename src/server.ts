@@ -10,7 +10,7 @@ import { bindingKey, loadBindings, pushEvent } from './bindings.js';
 import { StateStore } from './state.js';
 import { ImageStore } from './store.js';
 import { CallLog } from './log.js';
-import { renderNotFound, renderPage } from './render.js';
+import { renderIndex, renderNotFound, renderPage } from './render.js';
 import { renderAdmin } from './admin.js';
 import { EVENTS_OF, VALUE_KINDS, elementById, formSchema, methodsOf, type Element, type Form } from './model.js';
 
@@ -171,9 +171,13 @@ app.setErrorHandler((error, _req, reply) => {
 });
 
 app.get('/', async (_req, reply) => {
-  const first = forms.values().next().value as Form | undefined;
-  if (!first) return reply.code(404).type('text/html').send(renderNotFound());
-  return reply.redirect(`/p/${first.slug}`);
+  const items = [...forms.values()].map((form) => ({
+    slug: form.slug,
+    title: form.title,
+    lead: form.lead,
+    elements: form.elements.length,
+  }));
+  return reply.type('text/html; charset=utf-8').send(renderIndex(items));
 });
 
 app.get('/health', async () => ({

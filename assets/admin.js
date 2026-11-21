@@ -25,6 +25,32 @@
   var SNAP = 8;
 
   var state = { slug: null, form: null, selected: null, dirty: false, dragging: false };
+  var history = [];
+  var HISTORY_LIMIT = 20;
+  var armSnapshot = true;
+
+  function snapshot() {
+    if (!state.form) return;
+    var json = JSON.stringify(state.form);
+    if (history.length && history[history.length - 1] === json) return;
+    history.push(json);
+    if (history.length > HISTORY_LIMIT) history.shift();
+  }
+
+  function undo() {
+    if (!history.length) {
+      setStatus('нечего отменять');
+      return;
+    }
+    state.form = JSON.parse(history.pop());
+    var exists = state.form.elements.some(function (el) { return el.id === state.selected; });
+    if (!exists) {
+      state.selected = state.form.elements.length ? state.form.elements[0].id : null;
+    }
+    renderAll();
+    markDirty();
+    setStatus('отменено');
+  }
 
   var $ = function (sel) { return document.querySelector(sel); };
   var select = $('#form-select');
@@ -176,6 +202,7 @@
     node.addEventListener('pointerdown', function (event) {
       if (event.target.classList.contains('handle')) return;
       event.preventDefault();
+      snapshot();
       state.selected = el.id;
       renderSelection();
       renderInspector();
@@ -206,6 +233,7 @@
         node.removeEventListener('pointerup', up);
         node.removeEventListener('pointercancel', up);
         if (moved) markDirty();
+        else history.pop();
       }
 
       node.addEventListener('pointermove', move);
@@ -218,6 +246,7 @@
     handle.addEventListener('pointerdown', function (event) {
       event.preventDefault();
       event.stopPropagation();
+      snapshot();
       var startX = event.clientX;
       var startY = event.clientY;
       var originW = el.w;
@@ -244,6 +273,7 @@
         handle.removeEventListener('pointerup', up);
         handle.removeEventListener('pointercancel', up);
         if (moved) markDirty();
+        else history.pop();
       }
 
       handle.addEventListener('pointermove', move);
@@ -295,6 +325,7 @@
 
   function addElement(kind) {
     if (!state.form) return;
+    snapshot();
     var size = defaultSize(kind);
     var bottom = 16;
     state.form.elements.forEach(function (el) { bottom = Math.max(bottom, el.y + el.h); });
@@ -326,6 +357,7 @@
   function removeSelected() {
     var el = selected();
     if (!el) return;
+    snapshot();
     state.form.elements = state.form.elements.filter(function (item) { return item.id !== el.id; });
     state.selected = state.form.elements.length ? state.form.elements[0].id : null;
     renderCanvas();
@@ -368,7 +400,8 @@
     }
 
     var html = '<h3>Элемент</h3>';
-    html += row('id', '<input type="text" value="' + escapeHtml(el.id) + '" disabled title="имя = имя метода, после публикации не меняется">');
+    html += row('id', '<input type="text" data-prop="id" value="' + escapeHtml(el.id) + '" title="имя элемента = имя метода; переименование меняет контракт с n8n">');
+    html += '<div class="muted" style="padding:0 14px 8px">метод: ' + escapeHtml(state.slug) + '.<b>' + escapeHtml(el.id) + '</b></div>';
     html += row('вид', '<input type="text" value="' + el.kind + '" disabled>');
     if (el.kind !== 'status') html += row('подпись', textInput('label', el.label));
     html += '<div class="row pair"><label>прямоуг.</label>' + numberInput('x', el.x) + numberInput('y', el.y) + '</div>';
@@ -434,6 +467,7 @@
     })
       .then(function () {
         state.dirty = false;
+        history.length = 0;
         setStatus('сохранено · ' + new Date().toLocaleTimeString(), 'ok');
       })
       .catch(function (err) {
@@ -487,6 +521,12 @@
     var prop = input.dataset.prop;
     var el = selected();
     if (!prop || !el || state.dragging) return;
+    if (prop === 'id') return;
+
+    if (!armSnapshot) {
+      snapshot();
+      armSnapshot = true;
+    }
 
     var value;
     if (input.type === 'checkbox') value = input.checked;
@@ -511,9 +551,50 @@
     markDirty();
   });
 
+  inspector.addEventListener('focusin', function (event) {
+    if (event.target.dataset && event.target.dataset.prop) armSnapshot = false;
+  });
+
+  inspector.addEventListener('focusout', function () {
+    armSnapshot = true;
+  });
+
+  inspector.addEventListener('change', function (event) {
+    var input = event.target;
+    if (input.dataset.prop !== 'id') return;
+    var el = selected();
+    if (!el) return;
+
+    var next = String(input.value || '').trim().toLowerCase();
+    if (!/^[a-z][a-z0-9_]{0,30}$/.test(next)) {
+      setStatus('id: латиница, цифры и _, начинается с буквы', 'err');
+      input.value = el.id;
+      return;
+    }
+    if (state.form.elements.some(function (item) { return item !== el && item.id === next; })) {
+      setStatus('id «' + next + '» уже занят', 'err');
+      input.value = el.id;
+      return;
+    }
+    if (next === el.id) return;
+
+    snapshot();
+    el.id = next;
+    state.selected = next;
+    renderCanvas();
+    renderInspector();
+    markDirty();
+    setStatus('переименовано в «' + next + '» · метод ' + state.slug + '.' + next);
+  });
+
   document.addEventListener('keydown', function (event) {
     if (event.key === 'Delete' && state.selected && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) {
       removeSelected();
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
+      if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+      event.preventDefault();
+      undo();
     }
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
       event.preventDefault();

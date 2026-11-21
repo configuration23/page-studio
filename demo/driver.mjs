@@ -141,34 +141,58 @@ async function call(path, init) {
   return res;
 }
 
-async function setStatus(sid, state, text) {
-  await call(`/api/v1/forms/${PAGE}/values/status?sid=${encodeURIComponent(sid)}`, {
+async function getJson(path) {
+  const res = await call(path);
+  return res.json();
+}
+
+async function setStatus(page, sid, state, text) {
+  await call(`/api/v1/forms/${page}/values/status?sid=${encodeURIComponent(sid)}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ value: { state, text } }),
   });
 }
 
-async function postImage(sid, svg, prompt) {
-  const note = encodeURIComponent(prompt.slice(0, 300));
-  await call(`/api/v1/forms/${PAGE}/values/image?sid=${encodeURIComponent(sid)}&note=${note}`, {
+async function postImage(page, sid, note) {
+  const encoded = encodeURIComponent(String(note || '').slice(0, 300));
+  await call(`/api/v1/forms/${page}/values/image?sid=${encodeURIComponent(sid)}&note=${encoded}`, {
     method: 'POST',
     headers: { 'content-type': 'image/svg+xml' },
-    body: svg,
+    body: renderSvg(note),
   });
 }
 
+/** Текст для галереи: первое осмысленное поле формы, иначе первая строка. */
+function pickNote(values) {
+  if (!values || typeof values !== 'object') return '';
+  for (const key of ['prompt', 'message', 'text', 'name']) {
+    if (typeof values[key] === 'string' && values[key].trim()) return values[key].trim();
+  }
+  for (const value of Object.values(values)) {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return '';
+}
+
 async function runJob(payload) {
+  const page = String(payload?.page ?? PAGE);
   const sid = String(payload?.sid ?? '');
   if (!sid) throw new Error('в событии нет sid');
-  const prompt = String(payload?.values?.prompt ?? '').trim();
 
-  await setStatus(sid, 'queued', 'принято демо-драйвером');
-  await sleep(600);
-  await setStatus(sid, 'running', 'рисует');
+  // Страница сама говорит, что у неё есть: картинка, статус или ничего.
+  const manifest = await getJson(`/api/v1/forms/${page}/manifest`);
+  const kinds = manifest.elements.map((item) => item.kind);
+  const hasImage = kinds.includes('image');
+  const hasStatus = kinds.includes('status');
+  const note = pickNote(payload.values);
+
+  if (hasStatus) await setStatus(page, sid, 'queued', 'принято демо-драйвером');
+  await sleep(500);
+  if (hasStatus) await setStatus(page, sid, 'running', hasImage ? 'рисует' : 'в работе');
   await sleep(WORK_MS);
-  await postImage(sid, renderSvg(prompt), prompt);
-  await setStatus(sid, 'done', 'готово');
+  if (hasImage) await postImage(page, sid, note);
+  if (hasStatus) await setStatus(page, sid, 'done', 'готово');
 }
 
 const server = createServer((req, res) => {
@@ -197,8 +221,9 @@ const server = createServer((req, res) => {
     runJob(payload).catch((err) => {
       console.error('прогон упал:', err.message);
       const sid = String(payload?.sid ?? '');
+      const page = String(payload?.page ?? PAGE);
       if (sid) {
-        setStatus(sid, 'failed', err.message.slice(0, 120)).catch(() => {});
+        setStatus(page, sid, 'failed', err.message.slice(0, 120)).catch(() => {});
       }
     });
   });
