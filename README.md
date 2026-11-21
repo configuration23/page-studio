@@ -1,0 +1,106 @@
+# page-studio
+
+Портал-конструктор: админ собирает страницу из элементов, каждый элемент получает
+методы, обвязку делает внешний бэкенд (n8n). Портал не содержит бизнес-логики —
+он хранит состояние, шлёт события и показывает то, что в него положили.
+
+Аналогия — дизайнер форм Delphi: палитра, канвас, инспектор, события и методы.
+
+## Что уже работает (этап A)
+
+- форма `generation` на канвасе 960 px, элементы с координатами;
+- 9 видов элементов: `label`, `edit`, `memo`, `combo`, `check`, `button`,
+  `image`, `gallery`, `status`;
+- методы выводятся из раскладки: `<slug>.<id>`, `<slug>.post_<id>`, `<slug>.<event>_<id>`;
+- состояние на сервере по сессиям (cookie `ps_sid`), переживает перезагрузку;
+- живые обновления через SSE;
+- картинки: бэкенд кладёт байты, портал хранит и отдаёт `/media/<id>`;
+- журнал вызовов `/api/v1/log`;
+- демо-драйвер вместо n8n: событие → статус → картинка.
+
+## Быстрый старт
+
+```bash
+cp .env.example .env          # PORTAL_TOKEN обязателен
+pnpm install
+pnpm build
+pnpm start                    # http://127.0.0.1:3000/p/generation
+
+# во втором терминале — «n8n» на время, пока его нет
+pnpm demo                     # http://127.0.0.1:7100/webhook/gen-push
+```
+
+Проверка контракта целиком:
+
+```bash
+pnpm smoke                    # 13 проверок, требует запущенных портала и драйвера
+```
+
+## Контракт
+
+Полное описание — [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Коротко:
+
+| Метод | Кто зовёт | Как |
+|---|---|---|
+| `generation.prompt` | n8n | `GET /api/v1/forms/generation/values/prompt?sid=…` |
+| `generation.on_click_push` | браузер → портал → n8n | событие, снимок формы уходит в вебхук |
+| `generation.post_status` | n8n | `POST …/values/status?sid=…` `{"value":{"state":"running","text":"рисует"}}` |
+| `generation.post_image` | n8n | `POST …/values/image?sid=…&note=…`, `Content-Type: image/png`, тело — файл |
+| `generation.gallery` | n8n | `GET …/values/gallery?sid=…` |
+
+Запись защищена токеном: `Authorization: Bearer $PORTAL_TOKEN`. Чтение страницы —
+без входа, доступ ограничивается сетью или VPN.
+
+Событие приходит в n8n одним запросом и несёт значения всех полей:
+
+```json
+{ "page": "generation", "element": "push", "event": "on_click", "sid": "…",
+  "values": { "prompt": "кот-астронавт", "status": { "state": "idle" } } }
+```
+
+## Подключение n8n
+
+1. В n8n — Webhook-нода, путь `gen-push`, метод POST, ответ сразу (не ждать работы).
+2. В `data/bindings.yaml`:
+
+```yaml
+- on: generation/on_click/push
+  url: http://192.168.1.126:5678/webhook/gen-push
+```
+
+3. В воркфлоу: взять `$json.values.prompt`, вызвать раннер ComfyUI
+   (`POST /jobs`, опрос `GET /jobs/{id}`, забрать файл `GET /jobs/{id}/image`),
+   по пути писать статус, в конце отдать картинку:
+
+```bash
+curl -X POST "$PORTAL/api/v1/forms/generation/values/image?sid=$SID&note=prompt" \
+  -H "authorization: Bearer $PORTAL_TOKEN" \
+  -H "content-type: image/png" --data-binary @image.png
+```
+
+Ровно это делает `demo/driver.mjs` — его можно читать как пример воркфлоу.
+
+## Docker
+
+```bash
+docker compose -f docker/compose.example.yaml up -d --build
+```
+
+Перед nginx — `docker/nginx.conf.example`: basic auth, длинный `proxy_read_timeout`,
+буферизация выключена для SSE.
+
+## Чего нет (этап B и дальше)
+
+- визуального дизайнера: формы пока правятся в `data/forms/*.yaml`;
+- черновика и публикации;
+- алиасов переименованных элементов;
+- загрузки файлов пользователем.
+
+Полный список — [`docs/BACKLOG.md`](docs/BACKLOG.md).
+
+## Правила проекта
+
+- ветка `feat/prototype-s0`, в `main` — только через приёмку;
+- внешних CDN и шрифтов нет: все ассеты свои, страница работает без интернета;
+- токен и картинки — не в git;
+- документация обновляется тем же коммитом, что и код.
