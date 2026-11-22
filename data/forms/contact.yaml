@@ -62,6 +62,7 @@ elements:
     label: Отправить
     props:
       primary: true
+    target: demo
   - id: trace
     kind: list
     x: 480

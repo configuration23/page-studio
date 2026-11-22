@@ -225,7 +225,7 @@
     showGuideY(null);
   }
 
-  var state = { slug: null, form: null, selected: null, dirty: false, dragging: false, hasDraft: false };
+  var state = { slug: null, form: null, selected: null, dirty: false, dragging: false, hasDraft: false, targets: [] };
   var history = [];
   var HISTORY_LIMIT = 20;
   var armSnapshot = true;
@@ -691,6 +691,23 @@
     html += '<div class="muted" style="padding:0 14px 8px">метод: ' + escapeHtml(state.slug) + '.<b>' + escapeHtml(el.id) + '</b></div>';
     html += row('вид', '<input type="text" value="' + escapeHtml(info.name) + '" disabled>');
     html += '<details class="help"><summary>? что это и как заполнять</summary><div>' + escapeHtml(info.detail) + '</div></details>';
+
+    if (EVENTS[el.kind]) {
+      var options = ['<option value="">— не отправлять —</option>']
+        .concat(
+          state.targets.map(function (name) {
+            return (
+              '<option value="' + escapeHtml(name) + '"' +
+              (el.target === name ? ' selected' : '') + '>' + escapeHtml(name) + '</option>'
+            );
+          })
+        )
+        .join('');
+      html += row('куда', '<select data-target="1">' + options + '</select>');
+      if (el.target && state.targets.indexOf(el.target) === -1) {
+        html += '<div class="muted" style="padding:0 14px 8px;color:#f0c05a">цели «' + escapeHtml(el.target) + '» нет — события не уйдут</div>';
+      }
+    }
     if (el.kind !== 'status') html += row('подпись', textInput('label', el.label));
     html += '<div class="row pair"><label>прямоуг.</label>' + numberInput('x', el.x) + numberInput('y', el.y) + '</div>';
     html += '<div class="row pair"><label>размер</label>' + numberInput('w', el.w) + numberInput('h', el.h) + '</div>';
@@ -990,6 +1007,126 @@
       });
   });
 
+  // --- цели событий ----------------------------------------------------------
+
+  var targetsModal = $('#targets-modal');
+
+  function renderTargets(list) {
+    var box = $('#target-list');
+    if (!list.length) {
+      box.innerHTML = '<div class="token-row empty">Целей пока нет</div>';
+      return;
+    }
+    box.innerHTML = list
+      .map(function (item) {
+        return (
+          '<div class="token-row">' +
+          '<span class="name">' + escapeHtml(item.name) + '</span>' +
+          '<input class="target-url" data-url-for="' + escapeHtml(item.name) + '" value="' + escapeHtml(item.url) + '" style="flex:2;min-width:0">' +
+          '<span class="meta">' + item.usedBy + ' элем.</span>' +
+          '<button class="btn" data-target-save="' + escapeHtml(item.name) + '">сохранить</button>' +
+          '<button class="btn danger" data-target-del="' + escapeHtml(item.name) + '">удалить</button>' +
+          '</div>'
+        );
+      })
+      .join('');
+  }
+
+  function loadTargets() {
+    return api('/api/v1/admin/targets')
+      .then(function (data) {
+        var list = data.targets || [];
+        state.targets = list.map(function (item) {
+          return item.name;
+        });
+        renderTargets(list);
+        return list;
+      })
+      .catch(function (err) {
+        setStatus('цели не загрузились: ' + err.message, 'err');
+      });
+  }
+
+  function saveTarget(name, url) {
+    return api('/api/v1/admin/targets/' + encodeURIComponent(name), {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ url: url })
+    });
+  }
+
+  $('#targets-open').addEventListener('click', function () {
+    targetsModal.hidden = false;
+    loadTargets().then(function () {
+      renderInspector();
+    });
+  });
+
+  $('#target-close').addEventListener('click', function () {
+    targetsModal.hidden = true;
+    renderInspector();
+  });
+
+  targetsModal.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') {
+      targetsModal.hidden = true;
+      renderInspector();
+    }
+    if (event.key === 'Enter') $('#target-save').click();
+  });
+
+  $('#target-save').addEventListener('click', function () {
+    var name = $('#target-name').value.trim().toLowerCase();
+    var url = $('#target-url').value.trim();
+    if (!name || !url) {
+      setStatus('нужны имя и адрес цели', 'err');
+      return;
+    }
+    saveTarget(name, url)
+      .then(function () {
+        $('#target-name').value = '';
+        $('#target-url').value = '';
+        return loadTargets();
+      })
+      .then(function () {
+        renderInspector();
+        setStatus('цель «' + name + '» сохранена', 'ok');
+      })
+      .catch(function (err) {
+        setStatus('не сохранилось: ' + err.message, 'err');
+      });
+  });
+
+  $('#target-list').addEventListener('click', function (event) {
+    var saveBtn = event.target.closest('button[data-target-save]');
+    if (saveBtn) {
+      var name = saveBtn.dataset.targetSave;
+      var input = $('#target-list input[data-url-for="' + name + '"]');
+      saveTarget(name, input ? input.value.trim() : '')
+        .then(loadTargets)
+        .then(function () {
+          setStatus('адрес цели «' + name + '» обновлён', 'ok');
+        })
+        .catch(function (err) {
+          setStatus('не сохранилось: ' + err.message, 'err');
+        });
+      return;
+    }
+    var delBtn = event.target.closest('button[data-target-del]');
+    if (!delBtn) return;
+    var target = delBtn.dataset.targetDel;
+    if (!window.confirm('Удалить цель «' + target + '»? Элементы с этой целью перестанут отправлять события.')) return;
+    api('/api/v1/admin/targets/' + encodeURIComponent(target), { method: 'DELETE' })
+      .then(loadTargets)
+      .then(function () {
+        renderInspector();
+        setStatus('цель «' + target + '» удалена', 'err');
+      })
+      .catch(function (err) {
+        setStatus('не удалилась: ' + err.message, 'err');
+      });
+  });
+
   var modal = $('#modal');
   var newSlug = $('#new-slug');
   var newTitle = $('#new-title');
@@ -1123,6 +1260,17 @@
 
   inspector.addEventListener('change', function (event) {
     var input = event.target;
+    if (input.dataset && input.dataset.target) {
+      var current = selected();
+      if (!current) return;
+      snapshot();
+      var value = input.value;
+      if (value) current.target = value;
+      else delete current.target;
+      markDirty();
+      setStatus(value ? 'событие уходит в цель «' + value + '»' : 'события не отправляются');
+      return;
+    }
     if (input.dataset.prop !== 'id') return;
     var el = selected();
     if (!el) return;
@@ -1180,7 +1328,12 @@
   });
 
   renderPalette();
-  loadForms()
-    .then(function () { setStatus('готово'); })
-    .catch(function (err) { setStatus('не загрузилось: ' + err.message, 'err'); });
+  loadTargets()
+    .then(loadForms)
+    .then(function () {
+      setStatus('готово');
+    })
+    .catch(function (err) {
+      setStatus('не загрузилось: ' + err.message, 'err');
+    });
 })();

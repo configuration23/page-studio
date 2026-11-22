@@ -1,24 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
-import YAML from 'yaml';
 import type { CallLog } from './log.js';
-
-export type Binding = { on: string; url: string };
-
-/** Ключ привязки: "<slug>/<event>/<id>". URL вебхука живёт здесь, не в форме. */
-export function bindingKey(slug: string, event: string, id: string): string {
-  return `${slug}/${event}/${id}`;
-}
-
-export function loadBindings(file: string): Map<string, string> {
-  const map = new Map<string, string>();
-  if (!existsSync(file)) return map;
-  const parsed = YAML.parse(readFileSync(file, 'utf8')) as Binding[] | null;
-  for (const item of parsed ?? []) {
-    if (!item?.on || !item?.url) continue;
-    map.set(item.on, item.url);
-  }
-  return map;
-}
 
 export type PushResult = { ok: boolean; status?: number; ms: number; note?: string };
 

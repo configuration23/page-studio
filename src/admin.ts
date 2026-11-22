@@ -105,6 +105,7 @@ export function renderAdmin(): string {
       <label><input type="checkbox" id="snap-canvas" checked> края и центр канваса</label>
       <label><input type="checkbox" id="snap-resize" checked> изменение размера</label>
     </div>
+    <button class="btn" id="targets-open" style="margin: 0 10px 8px; width: calc(100% - 20px)">Цели событий</button>
     <button class="btn" id="tokens-open" style="margin: 0 10px 14px; width: calc(100% - 20px)">API-токены</button>
   </aside>
   <section id="stage">
@@ -152,6 +153,19 @@ export function renderAdmin(): string {
       <input id="token-name" placeholder="имя, например n8n-backup" style="flex: 1; margin-right: 8px">
       <button class="btn primary" id="token-create">Создать</button>
       <button class="btn" id="token-close">Закрыть</button>
+    </div>
+  </div>
+</div>
+<div class="modal" id="targets-modal" hidden>
+  <div class="modal-box" style="width: 580px">
+    <h3>Цели событий</h3>
+    <p class="modal-hint">Элемент хранит только имя цели. Адрес живёт здесь, поэтому страницу можно экспортировать, не выдавая адреса вебхуков.</p>
+    <div id="target-list" class="token-list"></div>
+    <div class="modal-actions">
+      <input id="target-name" placeholder="имя, например n8n" style="flex: 1; margin-right: 6px">
+      <input id="target-url" placeholder="http://…/webhook/…" style="flex: 2; margin-right: 6px">
+      <button class="btn primary" id="target-save">Сохранить</button>
+      <button class="btn" id="target-close">Закрыть</button>
     </div>
   </div>
 </div>

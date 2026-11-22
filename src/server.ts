@@ -7,7 +7,8 @@ import YAML from 'yaml';
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
 import { loadConfig } from './config.js';
 import { draftFile, loadForms, publishedFile } from './forms.js';
-import { bindingKey, loadBindings, pushEvent } from './bindings.js';
+import { pushEvent } from './push.js';
+import { TargetStore } from './targets.js';
 import { StateStore } from './state.js';
 import { ImageStore } from './store.js';
 import { CallLog } from './log.js';
@@ -26,7 +27,8 @@ import { EVENTS_OF, VALUE_KINDS, elementById, formSchema, methodsOf, resolveElem
 const config = loadConfig();
 const forms = loadForms(config.formsDir);
 const drafts = loadForms(config.formsDir, { drafts: true });
-const bindings = loadBindings(join(config.dataDir, 'bindings.yaml'));
+/** Именованные адреса, куда уходят события. */
+const targets = new TargetStore(config.dataDir);
 const state = new StateStore(config.dataDir);
 const images = new ImageStore(config.dataDir);
 const log = new CallLog(200, join(config.logsDir, 'calls.jsonl'));
@@ -329,13 +331,13 @@ app.get('/api/v1/forms/:slug/manifest', async (req) => {
       label: el.label ?? null,
       rect: { x: el.x, y: el.y, w: el.w, h: el.h },
       events: EVENTS_OF[el.kind] ?? [],
+      // имя цели, а не адрес: манифест открыт, адреса вебхуков — нет
+      target: el.target ?? null,
       methods: methods.filter((m) => m.elementId === el.id).map((m) => ({ name: m.name, kind: m.kind })),
     })),
     methods,
     aliases: form.aliases,
-    bindings: [...bindings.entries()]
-      .filter(([key]) => key.startsWith(`${form.slug}/`))
-      .map(([on, url]) => ({ on, url })),
+    targets: targets.list().map((t) => t.name),
   };
 });
 
@@ -438,7 +440,7 @@ app.post('/api/v1/forms/:slug/events/:id', async (req, reply) => {
   }
 
   const event = events[0]!;
-  const url = bindings.get(bindingKey(form.slug, event, el.id));
+  const url = el.target ? targets.get(el.target) : null;
   const payload = {
     page: form.slug,
     element: el.id,
@@ -534,6 +536,7 @@ function compactForm(form: Form) {
       };
       if (el.label) out.label = el.label;
       if (el.hidden) out.hidden = true;
+      if (el.target) out.target = el.target;
       const props = Object.fromEntries(
         Object.entries(el.props).filter(([, value]) => value !== undefined),
       );
@@ -792,6 +795,40 @@ app.delete('/api/v1/admin/tokens/:id', async (req, reply) => {
   const id = (req.params as { id: string }).id;
   if (!tokens.revoke(id)) throw new HttpError(404, 'такого токена нет');
   log.add({ kind: 'value', page: 'admin', name: 'admin.token.revoke', ok: true, note: id });
+  return { ok: true };
+});
+
+app.get('/api/v1/admin/targets', async (req, reply) => {
+  requireAdminApi(req, reply);
+  const usage = new Map<string, number>();
+  for (const form of forms.values()) {
+    for (const el of form.elements) {
+      if (el.target) usage.set(el.target, (usage.get(el.target) ?? 0) + 1);
+    }
+  }
+  return {
+    targets: targets.list().map((t) => ({ ...t, usedBy: usage.get(t.name) ?? 0 })),
+  };
+});
+
+app.put('/api/v1/admin/targets/:name', async (req, reply) => {
+  requireAdminApi(req, reply);
+  const name = (req.params as { name: string }).name;
+  const body = (req.body ?? {}) as { url?: unknown };
+  try {
+    targets.set(name, String(body.url ?? ''));
+  } catch (err) {
+    throw new HttpError(400, (err as Error).message);
+  }
+  log.add({ kind: 'value', page: 'admin', name: 'admin.target.set', ok: true, note: name });
+  return { ok: true, targets: targets.list() };
+});
+
+app.delete('/api/v1/admin/targets/:name', async (req, reply) => {
+  requireAdminApi(req, reply);
+  const name = (req.params as { name: string }).name;
+  if (!targets.remove(name)) throw new HttpError(404, 'такой цели нет');
+  log.add({ kind: 'value', page: 'admin', name: 'admin.target.remove', ok: true, note: name });
   return { ok: true };
 });
 

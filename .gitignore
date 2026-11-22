@@ -16,3 +16,5 @@ data/forms/*.draft.yaml
 
 *.log
 logs/
+# Адреса целей — секрет конкретного стенда, в git только пример.
+data/targets.yaml

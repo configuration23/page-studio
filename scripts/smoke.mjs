@@ -48,7 +48,12 @@ async function main() {
   const methods = (manifest.body.methods ?? []).map((m) => m.name);
   check('манифест: метод события', methods.includes(`${PAGE}.on_click_push`));
   check('манифест: метод записи картинки', methods.includes(`${PAGE}.post_image`));
-  check('манифест: привязка события', (manifest.body.bindings ?? []).length > 0);
+  const pushElement = (manifest.body.elements ?? []).find((el) => el.id === 'push');
+  check('манифест: у кнопки есть цель события', Boolean(pushElement?.target), String(pushElement?.target));
+  check(
+    'манифест: адреса целей не отдаются',
+    !JSON.stringify(manifest.body).includes('http'),
+  );
 
   const sid = randomBytes(6).toString('hex');
 

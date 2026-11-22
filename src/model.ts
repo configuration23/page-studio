@@ -62,6 +62,8 @@ export const elementSchema = z.object({
   h: z.number().int().min(20).max(2000),
   label: z.string().max(120).optional(),
   hidden: z.boolean().default(false),
+  /** Имя цели, куда уходят события элемента. Адрес цели — отдельно, в targets.yaml. */
+  target: z.string().regex(/^[a-z][a-z0-9_-]{0,30}$/, 'цель: латиница, цифры, _ и -').optional(),
   props: propsSchema.default({}),
 });
 
