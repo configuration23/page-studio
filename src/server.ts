@@ -40,6 +40,16 @@ class HttpError extends Error {
 
 const app = Fastify({ logger: false, bodyLimit: config.maxImageBytes + 4096 });
 
+// Время ответа по каждому запросу: без него «страница думает» нечем проверить.
+// Формат строки стабильный, чтобы по логам можно было считать статистику.
+app.addHook('onResponse', (request, reply, done) => {
+  const ms = Math.round(reply.elapsedTime);
+  const path = request.url.split('?')[0];
+  const mark = ms >= 500 ? ' SLOW' : '';
+  console.log(`http${mark} ${request.method} ${path} ${reply.statusCode} ${ms}ms ${request.ip}`);
+  done();
+});
+
 app.addContentTypeParser(/^image\//, { parseAs: 'buffer' }, (_req, body, done) => {
   done(null, body);
 });
