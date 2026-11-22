@@ -1,9 +1,28 @@
 {
   "name": "page-studio",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "Конструктор личных страниц: блоки в YAML, данные из n8n, один контейнер",
+  "description": "Конструктор личных страниц: элементы-методы, обвязка в n8n, один контейнер",
+  "license": "MIT",
+  "author": "configuration23",
+  "homepage": "https://github.com/configuration23/page-studio#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/configuration23/page-studio.git"
+  },
+  "bugs": {
+    "url": "https://github.com/configuration23/page-studio/issues"
+  },
+  "keywords": [
+    "n8n",
+    "page-builder",
+    "form-designer",
+    "fastify",
+    "self-hosted",
+    "docker"
+  ],
+  "packageManager": "pnpm@11.28.5",
   "engines": {
     "node": ">=20"
   },

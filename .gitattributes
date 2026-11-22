@@ -1,0 +1,10 @@
+# Текстовые файлы — LF, как на Linux-хосте и в контейнере.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.webp binary
+
+pnpm-lock.yaml linguist-generated=true
