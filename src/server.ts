@@ -211,7 +211,7 @@ function getElement(form: Form, id: string): Element {
 
 function requireSid(req: FastifyRequest): string {
   const sid = sidFrom(req);
-  if (!sid) throw new HttpError(400, 'нужен ?sid= (или cookie ps_sid у браузера)');
+  if (!sid) throw new HttpError(400, 'нужен ?sid= (8–32 символа 0-9a-f) или cookie ps_sid');
   return sid;
 }
 
@@ -268,12 +268,22 @@ function galleriesOf(form: Form): Record<string, Array<{ imageId: string; note?:
   return out;
 }
 
-app.setErrorHandler((error, _req, reply) => {
-  const status = error instanceof HttpError ? error.statusCode : 500;
-  if (status >= 500) console.error(error);
-  const message = error instanceof Error ? error.message : String(error);
-  const issues = error instanceof HttpError ? error.issues : undefined;
-  reply.code(status).send(issues ? { error: message, issues } : { error: message });
+app.setErrorHandler((rawError: unknown, _req, reply) => {
+  const error = rawError as Error & { statusCode?: number };
+  if (error instanceof HttpError) {
+    reply
+      .code(error.statusCode)
+      .send(error.issues ? { error: error.message, issues: error.issues } : { error: error.message });
+    return;
+  }
+  // ошибки Fastify (пустое тело, неверный JSON, слишком большой файл) — это 4xx
+  const fastifyStatus = (error as { statusCode?: number }).statusCode;
+  if (typeof fastifyStatus === 'number' && fastifyStatus >= 400 && fastifyStatus < 500) {
+    reply.code(fastifyStatus).send({ error: error.message });
+    return;
+  }
+  console.error(error);
+  reply.code(500).send({ error: error.message });
 });
 
 app.get('/', async (_req, reply) => {
@@ -475,7 +485,7 @@ app.post('/api/v1/forms/:slug/events/:id', async (req, reply) => {
     name: `${form.slug}.${event}_${el.id}`,
     sid,
     ok: true,
-    note: url ? 'отправлено в бэкенд' : 'привязки нет',
+    note: url ? 'отправлено в бэкенд' : 'цель не задана',
   });
 
   return reply.code(202).send({ ok: true, event, pushed: Boolean(url) });
@@ -767,6 +777,12 @@ app.delete('/api/v1/admin/forms/:slug', async (req, reply) => {
   state.removeForm(slug);
   log.add({ kind: 'value', page: slug, name: 'admin.delete', ok: true });
   return { ok: true, removed: slug };
+});
+
+app.get('/api/v1/admin/settings', async (req, reply) => {
+  requireAdminApi(req, reply);
+  // токен записи нужен бэкенду; показываем его только вошедшему админу
+  return { portalToken: config.token };
 });
 
 app.get('/api/v1/admin/tokens', async (req, reply) => {

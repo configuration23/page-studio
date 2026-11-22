@@ -142,10 +142,15 @@ export function renderAdmin(): string {
 </div>
 <div class="modal" id="tokens-modal" hidden>
   <div class="modal-box" style="width: 540px">
-    <h3>Токены API</h3>
-    <p class="modal-hint">Токеном ходят скрипты и автоматизация: <code>Authorization: Bearer &lt;токен&gt;</code>. Сам токен показывается один раз — сохрани его.</p>
+    <h3>Токены</h3>
+    <div class="token-fresh" id="backend-token">
+      <label>Токен записи для бэкенда<input id="portal-token" type="password" readonly value=""></label>
+      <button class="btn" id="portal-token-reveal">показать</button>
+      <button class="btn" id="portal-token-copy">копировать</button>
+    </div>
+    <p class="modal-hint">Этот токен бэкенд присылает как <code>Authorization: Bearer …</code>, когда пишет значения на страницу. Токены ниже — для админского API (скрипты, резервные копии), в n8n они не нужны.</p>
     <div id="token-fresh" class="token-fresh" hidden>
-      <label>Новый токен<input id="token-value" readonly></label>
+      <label>Новый токен API<input id="token-value" readonly></label>
       <button class="btn" id="token-copy">копировать</button>
     </div>
     <div id="token-list" class="token-list"></div>

@@ -957,6 +957,27 @@
     $('#token-name').value = '';
     tokensModal.hidden = false;
     loadTokens();
+    api('/api/v1/admin/settings')
+      .then(function (data) {
+        var field = $('#portal-token');
+        field.value = data.portalToken || '';
+        field.type = 'password';
+        $('#portal-token-reveal').textContent = 'показать';
+      })
+      .catch(function (err) {
+        setStatus('не удалось получить токен бэкенда: ' + err.message, 'err');
+      });
+  });
+
+  $('#portal-token-reveal').addEventListener('click', function () {
+    var field = $('#portal-token');
+    var show = field.type === 'password';
+    field.type = show ? 'text' : 'password';
+    $('#portal-token-reveal').textContent = show ? 'скрыть' : 'показать';
+  });
+
+  $('#portal-token-copy').addEventListener('click', function () {
+    copyText($('#portal-token').value, 'токен бэкенда');
   });
 
   $('#token-close').addEventListener('click', function () {
@@ -990,10 +1011,44 @@
       });
   });
 
+  // Буфер обмена: по http:// navigator.clipboard недоступен, поэтому запасной путь.
+  function copyText(text, label) {
+    function done(ok) {
+      setStatus(ok ? 'скопировано: ' + label : 'не удалось скопировать — выдели и нажми Ctrl+C', ok ? 'ok' : 'err');
+    }
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard
+        .writeText(text)
+        .then(function () {
+          done(true);
+        })
+        .catch(function () {
+          done(legacyCopy(text));
+        });
+      return;
+    }
+    done(legacyCopy(text));
+  }
+
+  function legacyCopy(text) {
+    try {
+      var area = document.createElement('textarea');
+      area.value = text;
+      area.setAttribute('readonly', 'readonly');
+      area.style.position = 'fixed';
+      area.style.top = '-1000px';
+      document.body.appendChild(area);
+      area.select();
+      var ok = document.execCommand('copy');
+      document.body.removeChild(area);
+      return ok;
+    } catch (err) {
+      return false;
+    }
+  }
+
   $('#token-copy').addEventListener('click', function () {
-    var value = $('#token-value').value;
-    if (navigator.clipboard) navigator.clipboard.writeText(value);
-    setStatus('токен скопирован', 'ok');
+    copyText($('#token-value').value, 'токен API');
   });
 
   $('#token-list').addEventListener('click', function (event) {
@@ -1195,9 +1250,7 @@
     }
     var copy = event.target.closest('button[data-copy]');
     if (copy) {
-      var text = copy.dataset.copy;
-      if (navigator.clipboard) navigator.clipboard.writeText(text);
-      setStatus('скопировано: ' + text, 'ok');
+      copyText(copy.dataset.copy, 'метод ' + copy.dataset.copy);
     }
   });
 

@@ -249,6 +249,8 @@ main {
   border-radius: 10px;
   background: #131a28;
 }
+/* без этого правила блок с новым токеном виден всегда, даже с атрибутом hidden */
+.token-fresh[hidden] { display: none; }
 .token-fresh label { flex: 1; margin: 0; }
 .token-fresh input { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
 
