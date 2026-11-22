@@ -1019,8 +1019,13 @@
     if (event.target.dataset && event.target.dataset.prop) armSnapshot = false;
   });
 
-  inspector.addEventListener('focusout', function () {
+  inspector.addEventListener('focusout', function (event) {
     armSnapshot = true;
+    var el = selected();
+    var prop = event.target.dataset && event.target.dataset.prop;
+    if (!el || (prop !== 'w' && prop !== 'h')) return;
+    // размер мог быть поднят до минимума — показываем фактическое значение
+    event.target.value = el[prop];
   });
 
   inspector.addEventListener('change', function (event) {
