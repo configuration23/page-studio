@@ -3,6 +3,17 @@
 Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.0.0/),
 версии — [SemVer](https://semver.org/lang/ru/).
 
+## [Unreleased]
+
+### Изменено
+
+- портал больше не описывается как конструктор «для n8n»: бэкенд — любой процесс
+  с HTTP (FastAPI, Go, PHP, Make, свой скрипт); n8n остался примером;
+- `docs/N8N.md` переименован в `docs/BACKEND.md`: сначала общий контракт,
+  потом пример на n8n;
+- формулировки в README, VISION, ARCHITECTURE, OPERATIONS, SECURITY, DECISIONS
+  и в интерфейсе админки — про бэкенд, а не про конкретный инструмент.
+
 ## [0.2.0] — 2026-11-22
 
 ### Добавлено

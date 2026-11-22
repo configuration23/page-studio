@@ -23,7 +23,7 @@ export function loadBindings(file: string): Map<string, string> {
 export type PushResult = { ok: boolean; status?: number; ms: number; note?: string };
 
 /**
- * Fire-and-forget: портал не ждёт n8n и не зависит от его ответа.
+ * Fire-and-forget: портал не ждёт бэкенд и не зависит от его ответа.
  * Три попытки, таймаут 3 с каждая, итог — в журнал.
  */
 export async function pushEvent(

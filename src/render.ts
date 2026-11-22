@@ -225,7 +225,7 @@ ${CSS}
 <div class="index">
   <span class="tag">page-studio</span>
   <h1>Страницы</h1>
-  <p class="sub">Портал-конструктор: элементы — это методы, обвязка — в n8n.</p>
+  <p class="sub">Портал-конструктор: элементы — это методы, обвязка — в бэкенде.</p>
   <div class="list">
     ${cards}
   </div>

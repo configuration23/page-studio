@@ -97,7 +97,7 @@ export class ImageStore {
     return join(this.dir, record.file);
   }
 
-  /** Значение для элемента галереи: то, что видит браузер и n8n. */
+  /** Значение для элемента галереи: то, что видит браузер и бэкенд. */
   toGallery(page: string, limit = 24): Array<{ imageId: string; note?: string; createdAt: string }> {
     return this.list(limit, page).map((r) => ({
       imageId: r.id,

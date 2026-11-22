@@ -42,7 +42,7 @@ function int(value: string | undefined, fallback: number): number {
 
 export function loadConfig(): Config {
   const token = (process.env.PORTAL_TOKEN ?? '').trim();
-  if (!token) throw new Error('PORTAL_TOKEN не задан: без него n8n не сможет писать значения');
+  if (!token) throw new Error('PORTAL_TOKEN не задан: без него бэкенд не сможет писать значения');
   const port = int(process.env.PORT, 3000);
   return {
     port,

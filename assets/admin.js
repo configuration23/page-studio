@@ -432,7 +432,7 @@
     }
 
     var html = '<h3>Элемент</h3>';
-    html += row('id', '<input type="text" data-prop="id" value="' + escapeHtml(el.id) + '" title="имя элемента = имя метода; переименование меняет контракт с n8n">');
+    html += row('id', '<input type="text" data-prop="id" value="' + escapeHtml(el.id) + '" title="имя элемента = имя метода; переименование меняет контракт с бэкендом">');
     html += '<div class="muted" style="padding:0 14px 8px">метод: ' + escapeHtml(state.slug) + '.<b>' + escapeHtml(el.id) + '</b></div>';
     html += row('вид', '<input type="text" value="' + el.kind + '" disabled>');
     if (el.kind !== 'status') html += row('подпись', textInput('label', el.label));
@@ -475,7 +475,7 @@
         '<div class="m"><span><b>' + method.title + '</b><br>' + escapeHtml(method.name) + '</span>' +
         '<button data-copy="' + escapeHtml(method.name) + '">копировать</button></div>';
     });
-    html += '<div class="muted">Это то, что обвязывается в n8n. Событие несёт значения всех полей.</div></div>';
+    html += '<div class="muted">Это то, что обвязывается в бэкенде. Событие несёт значения всех полей.</div></div>';
 
     var old = aliasesOf(el.id);
     if (old.length) {
