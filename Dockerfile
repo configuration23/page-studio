@@ -18,7 +18,7 @@ RUN pnpm install --prod --frozen-lockfile --ignore-scripts
 COPY --from=build /app/dist ./dist
 COPY assets ./assets
 COPY data/forms ./data/forms
-COPY data/bindings.yaml ./data/bindings.yaml
+COPY data/targets.example.yaml ./data/targets.example.yaml
 COPY demo ./demo
 RUN mkdir -p data/state data/generations && chown -R node:node /app
 USER node
