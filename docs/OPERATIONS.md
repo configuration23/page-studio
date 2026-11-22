@@ -28,8 +28,8 @@ cp .env.example .env
 
 ```bash
 # каталоги данных пишет пользователь node (uid 1000)
-sudo mkdir -p data/state data/generations logs
-sudo chown -R 1000:1000 data logs
+sudo mkdir -p data/state data/generations data/logs
+sudo chown -R 1000:1000 data
 
 docker compose -f docker/compose.example.yaml up -d --build
 docker compose -f docker/compose.example.yaml ps
@@ -68,7 +68,7 @@ curl -s http://127.0.0.1:3000/api/v1/forms/generation/manifest
 
 ## Бэкап и восстановление
 
-Всё состояние — два каталога: `data/` (формы, значения сессий, картинки) и `logs/`.
+Всё состояние — один каталог `data/`: формы, значения сессий, картинки и журнал вызовов.
 
 ```bash
 # бэкап
@@ -106,7 +106,7 @@ docker compose -f docker/compose.example.yaml up -d --build
 
 | Что | Где |
 |---|---|
-| Вызовы методов, ошибки отправки в бэкенд | `logs/calls.jsonl`, `GET /api/v1/log` (с токеном) |
+| Вызовы методов, ошибки отправки в бэкенд | `data/logs/calls.jsonl`, `GET /api/v1/log` (с токеном) |
 | Вывод контейнера | `docker logs -f <контейнер>` |
 | Здоровье | `GET /health`, `docker inspect --format '{{.State.Health.Status}}'` |
 

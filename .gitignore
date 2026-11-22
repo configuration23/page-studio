@@ -2,8 +2,9 @@ node_modules/
 dist/
 .env
 
-# Состояние сессий и картинки — личные данные, в git не место.
+# Состояние сессий, журнал и картинки — личные данные, в git не место.
 data/state/
+data/logs/
 data/generations/*
 !data/generations/.gitkeep
 

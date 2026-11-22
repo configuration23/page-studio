@@ -123,7 +123,7 @@ data/forms/<slug>.draft.yaml  черновик (есть, пока не опуб
 data/bindings.yaml            события → вебхуки
 data/state/<slug>.<sid>.json  значения сессии
 data/generations/             байты картинок + index.jsonl
-logs/                         журнал вызовов (ротация)
+data/logs/                    журнал вызовов (ротация)
 ```
 
 Картинки в git не попадают (`.gitignore`): это личные данные.

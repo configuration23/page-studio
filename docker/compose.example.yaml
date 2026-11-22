@@ -16,6 +16,8 @@ services:
     environment:
       HOST: 0.0.0.0
       DATA_DIR: /app/data
+      # журнал — в том же томе, иначе он умрёт при пересоздании контейнера
+      LOGS_DIR: /app/data/logs
     ports:
       - "${PORTAL_PORT:-3000}:3000"
     volumes:
