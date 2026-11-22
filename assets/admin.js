@@ -815,6 +815,7 @@
       'Удалить страницу «' + slug + '»?\n\nВместе с ней уйдут файлы формы и значения всех сессий. Отменить это нельзя.'
     );
     if (!ok) return;
+    if (pageModal) pageModal.hidden = true;
     api('/api/v1/admin/forms/' + slug + '?confirm=' + encodeURIComponent(slug), { method: 'DELETE' })
       .then(function () {
         return loadForms();

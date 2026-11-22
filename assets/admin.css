@@ -64,7 +64,17 @@ select:focus, input:focus, textarea:focus { border-color: var(--accent); }
 .btn:disabled { opacity: 0.55; cursor: default; }
 .btn.danger { color: #ff8b84; }
 
-#status { color: var(--muted); font-size: 13px; max-width: 460px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#status {
+  color: var(--muted);
+  font-size: 13px;
+  max-width: 420px;
+  min-width: 96px;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+}
 #status.err { color: #ff8b84; }
 #status.ok { color: #6fdd8b; }
 

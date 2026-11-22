@@ -83,13 +83,12 @@ export function renderAdmin(): string {
   <span class="brand">page-studio <span>· админка</span></span>
   <select id="form-select" title="страница"></select>
   <button class="btn" id="new-page" title="создать страницу">+ Страница</button>
-  <button class="btn" id="page-settings" title="настройки страницы">Страница</button>
+  <button class="btn" id="page-settings" title="настройки страницы">Настройки</button>
   <button class="btn" id="save">Сохранить</button>
   <button class="btn primary" id="publish">Опубликовать</button>
   <span id="draft-badge" class="draft-badge" hidden>черновик</span>
   <a class="btn" id="preview" target="_blank" rel="noopener">Предпросмотр</a>
-  <a class="btn" id="open" target="_blank" rel="noopener">Открыть страницу</a>
-  <button class="btn danger" id="delete-page" title="удалить страницу">Удалить</button>
+  <a class="btn" id="open" target="_blank" rel="noopener">Открыть</a>
   <span class="spacer"></span>
   <span id="status"></span>
   <a class="btn" href="/admin/logout" title="выйти из админки">Выйти</a>
@@ -133,6 +132,7 @@ export function renderAdmin(): string {
     <label>Высота, px<input id="page-height" type="number" min="200" max="8000" step="10" placeholder="авто"></label>
     <p class="modal-hint">Пустая высота — страница по содержимому. Заданная — фиксированная; элемент ниже границы подсвечивается на канвасе.</p>
     <div class="modal-actions">
+      <button class="btn danger" id="delete-page" style="margin-right:auto">Удалить страницу</button>
       <button class="btn" id="page-cancel">Отмена</button>
       <button class="btn primary" id="page-apply">Применить</button>
     </div>
