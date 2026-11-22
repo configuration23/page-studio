@@ -118,6 +118,19 @@ pnpm demo
 страницы и делает те же три вызова: статус, картинка, статус. Если страница
 работает с ним — контракт собран верно.
 
+В Docker драйвер поднимается рядом с порталом и слушает все интерфейсы:
+
+```bash
+docker run -d --name ps-demo --restart unless-stopped \
+  --network docker_default \
+  -e DRIVER_HOST=0.0.0.0 \
+  -e PORTAL_URL=http://page-studio:3000 \
+  -e PORTAL_TOKEN="$(grep '^PORTAL_TOKEN=' .env | cut -d= -f2)" \
+  docker-page-studio node demo/driver.mjs
+```
+
+Привязки тогда смотрят на `http://ps-demo:7100/webhook/gen-push`.
+
 ## Если страница «ничего не делает»
 
 1. `GET /api/v1/log` с токеном — ушло ли событие и что ответил бэкенд.

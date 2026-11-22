@@ -27,6 +27,8 @@ const PORTAL = process.env.PORTAL_URL ?? `http://127.0.0.1:${process.env.PORT ??
 const TOKEN = process.env.PORTAL_TOKEN ?? env.PORTAL_TOKEN;
 const PAGE = process.env.DRIVER_PAGE ?? 'generation';
 const WORK_MS = Number(process.env.DRIVER_WORK_MS ?? 2000);
+// В контейнере драйвер должен слушать все интерфейсы, иначе портал его не увидит.
+const HOST = process.env.DRIVER_HOST ?? '127.0.0.1';
 
 if (!TOKEN) {
   console.error('PORTAL_TOKEN не задан — портал не пустит запись');
@@ -245,6 +247,6 @@ const server = createServer((req, res) => {
   });
 });
 
-server.listen(PORT, '127.0.0.1', () => {
-  console.log(`демо-драйвер: http://127.0.0.1:${PORT}/webhook/gen-push → портал ${PORTAL}`);
+server.listen(PORT, HOST, () => {
+  console.log(`демо-драйвер: http://${HOST}:${PORT}/webhook/gen-push → портал ${PORTAL}`);
 });
