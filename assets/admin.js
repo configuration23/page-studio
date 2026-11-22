@@ -95,7 +95,7 @@
   var VALUE_KINDS = ['edit', 'memo', 'combo', 'check', 'image', 'gallery', 'status'];
   var SNAP = 8;
   var MAGNET_PX = 6;
-  var snapSettings = { enabled: true, edges: true, centers: true, canvas: true };
+  var snapSettings = { enabled: true, edges: true, centers: true, canvas: true, resize: true };
   var guideV = null;
   var guideH = null;
 
@@ -108,6 +108,7 @@
       snapSettings.edges = saved.edges !== false;
       snapSettings.centers = saved.centers !== false;
       snapSettings.canvas = saved.canvas !== false;
+      snapSettings.resize = saved.resize !== false;
     } catch (e) {
       /* localStorage РјРѕР¶РµС‚ Р±С‹С‚СЊ РЅРµРґРѕСЃС‚СѓРїРµРЅ вЂ” РѕСЃС‚Р°СЋС‚СЃСЏ Р·РЅР°С‡РµРЅРёСЏ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ */
     }
@@ -126,6 +127,7 @@
     $('#snap-edges').checked = snapSettings.edges;
     $('#snap-centers').checked = snapSettings.centers;
     $('#snap-canvas').checked = snapSettings.canvas;
+    $('#snap-resize').checked = snapSettings.resize;
   }
 
   function collectTargets(exclude) {
@@ -493,16 +495,17 @@
         var dy = moveEvent.clientY - startY;
         if (Math.abs(dx) > 1 || Math.abs(dy) > 1) moved = true;
         var maxW = state.form.canvas.width - el.x;
-        el.w = Math.max(64, Math.min(maxW, snap(originW + dx)));
-        el.h = Math.max(24, snap(originH + dy));
+        var min = minSize(el);
+        el.w = Math.max(min.w, Math.min(maxW, snap(originW + dx)));
+        el.h = Math.max(min.h, snap(originH + dy));
 
         // С‚СЏРЅРµРј РїСЂР°РІС‹Р№/РЅРёР¶РЅРёР№ РєСЂР°Р№ вЂ” РѕРЅ С‚РѕР¶Рµ РјР°РіРЅРёС‚РёС‚СЃСЏ Рє С†РµР»СЏРј
-        if (snapSettings.enabled) {
+        if (snapSettings.enabled && snapSettings.resize) {
           var targets = collectTargets(el);
           var hitX = nearest(el.x + el.w, targets.xs);
-          if (hitX) el.w = Math.max(64, Math.min(maxW, el.w + Math.round(hitX.delta)));
+          if (hitX) el.w = Math.max(min.w, Math.min(maxW, el.w + Math.round(hitX.delta)));
           var hitY = nearest(el.y + el.h, targets.ys);
-          if (hitY) el.h = Math.max(24, el.h + Math.round(hitY.delta));
+          if (hitY) el.h = Math.max(min.h, el.h + Math.round(hitY.delta));
         }
 
         node.style.width = el.w + 'px';
@@ -560,6 +563,34 @@
     return {};
   }
 
+  // Минимальный размер элемента: подпись (если есть) плюс сам контрол.
+  // Меньше делать нельзя — иначе текст не помещается и «пропадает».
+  function minSize(el) {
+    var cap = el.label ? 22 : 0;
+    switch (el.kind) {
+      case 'label':
+        return { w: 40, h: 24 };
+      case 'edit':
+      case 'memo':
+        return { w: 120, h: cap + 34 };
+      case 'combo':
+        return { w: 140, h: cap + 34 };
+      case 'check':
+        return { w: 140, h: 32 };
+      case 'button':
+        return { w: 90, h: 40 };
+      case 'image':
+        return { w: 80, h: cap + 80 };
+      case 'gallery':
+        return { w: 140, h: cap + 80 };
+      case 'list':
+        return { w: 140, h: cap + 60 };
+      case 'status':
+        return { w: 110, h: 32 };
+      default:
+        return { w: 64, h: 24 };
+    }
+  }
   function defaultSize(kind) {
     if (kind === 'button') return { w: 200, h: 48 };
     if (kind === 'image') return { w: 320, h: 320 };
@@ -857,7 +888,8 @@
     ['snap-enabled', 'enabled'],
     ['snap-edges', 'edges'],
     ['snap-centers', 'centers'],
-    ['snap-canvas', 'canvas']
+    ['snap-canvas', 'canvas'],
+    ['snap-resize', 'resize']
   ].forEach(function (pair) {
     $('#' + pair[0]).addEventListener('change', function (event) {
       snapSettings[pair[1]] = event.target.checked;
@@ -967,8 +999,16 @@
       el[prop] = value;
     }
     if (prop === 'x' || prop === 'y' || prop === 'w' || prop === 'h') {
+      var min = minSize(el);
+      el.w = Math.max(min.w, el.w);
+      el.h = Math.max(min.h, el.h);
       var maxX = state.form.canvas.width - el.w;
       el.x = Math.min(el.x, Math.max(0, maxX));
+    }
+    if (prop === 'label') {
+      var need = minSize(el);
+      el.w = Math.max(el.w, need.w);
+      el.h = Math.max(el.h, need.h);
     }
     renderCanvas();
     markDirty();

@@ -57,11 +57,12 @@ docker compose -f docker/compose.example.yaml up -d --build
 
 | Кто | Как |
 |---|---|
-| Админ (`/admin`, предпросмотр черновика) | HTTP Basic, `ADMIN_USER` / `ADMIN_PASSWORD` |
+| Админ (`/admin`, предпросмотр черновика) | вход по логину и паролю (`ADMIN_USER` / `ADMIN_PASSWORD`), сессия в куке на 7 дней |
 | Бэкенд (запись значений) | `Authorization: Bearer <PORTAL_TOKEN>` |
 | Пользователь | без входа; наружу — только через nginx с TLS |
 
-Без `ADMIN_PASSWORD` админка выключена (503), а не открыта всем.
+Без `ADMIN_PASSWORD` админка выключена (503), а не открыта всем. Для скриптов и curl
+остался HTTP Basic теми же логином и паролем.
 
 ## Проверки
 

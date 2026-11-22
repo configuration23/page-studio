@@ -1,3 +1,73 @@
+export function renderLogin(options: { next?: string; error?: string; disabled?: boolean } = {}): string {
+  const error = options.error
+    ? `<div class="err">${escapeLogin(options.error)}</div>`
+    : '';
+  const body = options.disabled
+    ? `<div class="err">Админка выключена: не задан ADMIN_PASSWORD.</div>`
+    : `<form method="post" action="/admin/login">
+      <input type="hidden" name="next" value="${escapeLogin(options.next ?? '/admin')}">
+      <label>Логин<input name="user" autocomplete="username" autofocus></label>
+      <label>Пароль<input name="password" type="password" autocomplete="current-password"></label>
+      ${error}
+      <button type="submit">Войти</button>
+    </form>`;
+
+  return `<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>page-studio · вход</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%234f8cff'/><rect x='7' y='10' width='18' height='4' rx='2' fill='white'/><rect x='7' y='18' width='12' height='4' rx='2' fill='white' opacity='.65'/></svg>">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: grid; place-items: center;
+    background: #0b0e13; color: #e6edf3;
+    font: 15px/1.5 "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+  }
+  .card {
+    width: 340px; background: #121722; border: 1px solid #232c3b;
+    border-radius: 14px; padding: 22px; box-shadow: 0 30px 80px rgba(0,0,0,.5);
+  }
+  h1 { margin: 0 0 4px; font-size: 20px; }
+  p.sub { margin: 0 0 18px; color: #8b949e; font-size: 13px; }
+  label { display: block; margin-bottom: 12px; font-size: 12px; color: #8b949e; }
+  input {
+    display: block; width: 100%; margin-top: 5px; padding: 9px 11px;
+    background: #171d29; border: 1px solid #232c3b; border-radius: 8px;
+    color: #e6edf3; font: inherit; outline: none;
+  }
+  input:focus { border-color: #4f8cff; }
+  button {
+    width: 100%; margin-top: 6px; padding: 10px; border: 0; border-radius: 8px;
+    background: #4f8cff; color: #fff; font: 600 15px/1 inherit; cursor: pointer;
+  }
+  button:hover { filter: brightness(1.06); }
+  .err {
+    margin: 0 0 12px; padding: 8px 10px; border-radius: 8px;
+    background: #2a1717; border: 1px solid #6b2a2a; color: #ff8b84; font-size: 13px;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>page-studio</h1>
+    <p class="sub">Вход в админку</p>
+    ${body}
+  </div>
+</body>
+</html>`;
+}
+
+function escapeLogin(value: string): string {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 export function renderAdmin(): string {
   return `<!DOCTYPE html>
 <html lang="ru">
@@ -22,6 +92,7 @@ export function renderAdmin(): string {
   <button class="btn danger" id="delete-page" title="удалить страницу">Удалить</button>
   <span class="spacer"></span>
   <span id="status"></span>
+  <a class="btn" href="/admin/logout" title="выйти из админки">Выйти</a>
 </header>
 <main>
   <aside class="panel">
@@ -33,6 +104,7 @@ export function renderAdmin(): string {
       <label><input type="checkbox" id="snap-edges" checked> края элементов</label>
       <label><input type="checkbox" id="snap-centers" checked> центры элементов</label>
       <label><input type="checkbox" id="snap-canvas" checked> края и центр канваса</label>
+      <label><input type="checkbox" id="snap-resize" checked> изменение размера</label>
     </div>
   </aside>
   <section id="stage">

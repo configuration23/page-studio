@@ -282,8 +282,18 @@ main {
   display: block;
   width: 100%;
   margin-top: 4px;
+  /* явно: у этих полей нет type, поэтому общее правило input[type=text] их не ловит,
+     и браузер рисует белый фон со светлым текстом */
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 10px;
   color: var(--text);
+  font: inherit;
+  outline: none;
 }
+.modal-box input:focus { border-color: var(--accent); }
+.modal-box input::placeholder { color: #6b7787; opacity: 1; }
 .modal-hint { color: var(--muted); font-size: 12px; margin: 4px 0 14px; }
 .modal-hint code { color: #9ec1ff; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }

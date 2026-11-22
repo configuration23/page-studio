@@ -1,6 +1,7 @@
 import { createReadStream } from 'node:fs';
 import { readFileSync, unlinkSync, writeFileSync } from 'node:fs';
-import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { parse as parseQuery } from 'node:querystring';
 import { join } from 'node:path';
 import YAML from 'yaml';
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
@@ -11,7 +12,8 @@ import { StateStore } from './state.js';
 import { ImageStore } from './store.js';
 import { CallLog } from './log.js';
 import { renderIndex, renderNotFound, renderPage } from './render.js';
-import { renderAdmin } from './admin.js';
+import { renderAdmin, renderLogin } from './admin.js';
+import { checkCredentials, createSessionToken, verifySessionToken } from './auth.js';
 import { EVENTS_OF, VALUE_KINDS, elementById, formSchema, methodsOf, resolveElement, type Element, type Form } from './model.js';
 
 const config = loadConfig();
@@ -56,6 +58,17 @@ app.addContentTypeParser(/^image\//, { parseAs: 'buffer' }, (_req, body, done) =
 app.addContentTypeParser('application/octet-stream', { parseAs: 'buffer' }, (_req, body, done) => {
   done(null, body);
 });
+app.addContentTypeParser(
+  'application/x-www-form-urlencoded',
+  { parseAs: 'string' },
+  (_req, body, done) => {
+    try {
+      done(null, parseQuery(String(body)));
+    } catch (err) {
+      done(err as Error, undefined);
+    }
+  },
+);
 
 function cookie(req: FastifyRequest, name: string): string | null {
   const raw = req.headers.cookie;
@@ -98,6 +111,19 @@ function ensureSid(req: FastifyRequest, reply: FastifyReply): string {
   return sid;
 }
 
+const ADMIN_COOKIE = 'ps_admin';
+
+function setAdminCookie(reply: FastifyReply, token: string): void {
+  reply.header(
+    'set-cookie',
+    `${ADMIN_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800`,
+  );
+}
+
+function clearAdminCookie(reply: FastifyReply): void {
+  reply.header('set-cookie', `${ADMIN_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
+}
+
 function sameToken(given: string): boolean {
   const a = Buffer.from(given);
   const b = Buffer.from(config.token);
@@ -110,14 +136,12 @@ function authorized(req: FastifyRequest): boolean {
   return sameToken(header.slice(7).trim());
 }
 
-function safeEqual(left: string, right: string): boolean {
-  const a = Buffer.from(left);
-  const b = Buffer.from(right);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
+/** Секрет подписи сессии: постоянный, если задан, иначе производный от пароля. */
+const adminSecret =
+  (process.env.ADMIN_SESSION_SECRET ?? '').trim() ||
+  createHash('sha256').update(`page-studio:${config.adminPassword}`).digest('hex');
 
-/** Вход в админку: HTTP Basic, логин и пароль из конфига. */
-function isAdmin(req: FastifyRequest): boolean {
+function basicCredentials(req: FastifyRequest): boolean {
   if (!config.adminPassword) return false;
   const header = req.headers.authorization;
   if (!header || !header.toLowerCase().startsWith('basic ')) return false;
@@ -129,20 +153,35 @@ function isAdmin(req: FastifyRequest): boolean {
   }
   const colon = decoded.indexOf(':');
   if (colon < 0) return false;
-  return (
-    safeEqual(decoded.slice(0, colon), config.adminUser) &&
-    safeEqual(decoded.slice(colon + 1), config.adminPassword)
+  return checkCredentials(
+    decoded.slice(0, colon),
+    decoded.slice(colon + 1),
+    config.adminUser,
+    config.adminPassword,
   );
 }
 
-function requireAdmin(req: FastifyRequest, reply: FastifyReply): void {
+/** Админ — либо сессия из формы входа, либо Basic (для curl и скриптов). */
+function isAdmin(req: FastifyRequest): boolean {
+  if (!config.adminPassword) return false;
+  if (basicCredentials(req)) return true;
+  return verifySessionToken(adminSecret, cookie(req, ADMIN_COOKIE));
+}
+
+/** Страницы админки: без входа — на форму, а не в диалог браузера. */
+function requireAdminPage(req: FastifyRequest, reply: FastifyReply): boolean {
+  if (isAdmin(req)) return true;
+  const next = encodeURIComponent(req.url.split('?')[0] === '/admin' ? '/admin' : req.url);
+  reply.redirect(`/admin/login?next=${next}`, 303);
+  return false;
+}
+
+/** API админки: 401 без заголовка WWW-Authenticate, чтобы браузер не звал диалог. */
+function requireAdminApi(req: FastifyRequest, reply: FastifyReply): void {
   if (!config.adminPassword) {
     throw new HttpError(503, 'админка выключена: задайте ADMIN_USER и ADMIN_PASSWORD');
   }
-  if (!isAdmin(req)) {
-    reply.header('www-authenticate', 'Basic realm="page-studio admin", charset="UTF-8"');
-    throw new HttpError(401, 'нужен вход в админку');
-  }
+  if (!isAdmin(req)) throw new HttpError(401, 'нужен вход в админку');
 }
 
 function getForm(slug: string): Form {
@@ -244,7 +283,7 @@ app.get('/p/:slug', async (req, reply) => {
   const slug = (req.params as { slug: string }).slug;
   const query = (req.query ?? {}) as Record<string, unknown>;
   // ?draft=1 — предпросмотр черновика: только для админа, страница ещё не опубликована.
-  if (query.draft === '1') requireAdmin(req, reply);
+  if (query.draft === '1' && !requireAdminPage(req, reply)) return reply;
   const form = query.draft === '1' ? (drafts.get(slug) ?? getForm(slug)) : getForm(slug);
   const sid = ensureSid(req, reply);
   const values = state.values(form, sid);
@@ -496,13 +535,59 @@ function compactForm(form: Form) {
   };
 }
 
+app.get('/admin/login', async (req, reply) => {
+  if (!config.adminPassword) {
+    return reply.code(503).type('text/html; charset=utf-8').send(renderLogin({ disabled: true }));
+  }
+  if (isAdmin(req)) return reply.redirect('/admin', 303);
+  const query = (req.query ?? {}) as { next?: string };
+  const next = typeof query.next === 'string' && query.next.startsWith('/') ? query.next : '/admin';
+  return reply.type('text/html; charset=utf-8').send(renderLogin({ next }));
+});
+
+app.post('/admin/login', async (req, reply) => {
+  if (!config.adminPassword) {
+    return reply.code(503).type('text/html; charset=utf-8').send(renderLogin({ disabled: true }));
+  }
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const user = String(body.user ?? '');
+  const password = String(body.password ?? '');
+  const nextRaw = String(body.next ?? '/admin');
+  const next = nextRaw.startsWith('/') && !nextRaw.startsWith('//') ? nextRaw : '/admin';
+
+  if (!checkCredentials(user, password, config.adminUser, config.adminPassword)) {
+    // небольшая задержка, чтобы перебор не был бесплатным
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    log.add({
+      kind: 'error',
+      page: 'admin',
+      name: 'admin.login',
+      ok: false,
+      note: `неудачный вход: ${user.slice(0, 40) || '(пусто)'}`,
+    });
+    return reply
+      .code(401)
+      .type('text/html; charset=utf-8')
+      .send(renderLogin({ next, error: 'Неверный логин или пароль' }));
+  }
+
+  setAdminCookie(reply, createSessionToken(adminSecret));
+  log.add({ kind: 'value', page: 'admin', name: 'admin.login', ok: true });
+  return reply.redirect(next, 303);
+});
+
+app.get('/admin/logout', async (_req, reply) => {
+  clearAdminCookie(reply);
+  return reply.redirect('/admin/login', 303);
+});
+
 app.get('/admin', async (req, reply) => {
-  requireAdmin(req, reply);
+  if (!requireAdminPage(req, reply)) return reply;
   return reply.type('text/html; charset=utf-8').send(renderAdmin());
 });
 
 app.get('/admin.css', async (req, reply) => {
-  requireAdmin(req, reply);
+  requireAdminApi(req, reply);
   return reply
     .type('text/css; charset=utf-8')
     .header('cache-control', 'no-cache')
@@ -510,7 +595,7 @@ app.get('/admin.css', async (req, reply) => {
 });
 
 app.get('/admin.js', async (req, reply) => {
-  requireAdmin(req, reply);
+  requireAdminApi(req, reply);
   return reply
     .type('text/javascript; charset=utf-8')
     .header('cache-control', 'no-cache')
@@ -525,7 +610,7 @@ function adminForm(slug: string): Form {
 }
 
 app.get('/api/v1/admin/forms', async (req, reply) => {
-  requireAdmin(req, reply);
+  requireAdminApi(req, reply);
   return {
     forms: [...forms.values()].map((published) => {
       const draft = drafts.get(published.slug);
@@ -541,13 +626,13 @@ app.get('/api/v1/admin/forms', async (req, reply) => {
 });
 
 app.get('/api/v1/admin/forms/:slug', async (req, reply) => {
-  requireAdmin(req, reply);
+  requireAdminApi(req, reply);
   const slug = (req.params as { slug: string }).slug;
   return { form: adminForm(slug), hasDraft: drafts.has(slug) };
 });
 
 app.post('/api/v1/admin/forms', async (req, reply) => {
-  requireAdmin(req, reply);
+  requireAdminApi(req, reply);
   const body = (req.body ?? {}) as { slug?: unknown; title?: unknown };
   const slug = String(body.slug ?? '')
     .trim()
@@ -584,7 +669,7 @@ app.post('/api/v1/admin/forms', async (req, reply) => {
 });
 
 app.put('/api/v1/admin/forms/:slug', async (req, reply) => {
-  requireAdmin(req, reply);
+  requireAdminApi(req, reply);
   const slug = (req.params as { slug: string }).slug;
   if (!forms.has(slug)) throw new HttpError(404, `формы «${slug}» нет`);
 
@@ -613,7 +698,7 @@ app.put('/api/v1/admin/forms/:slug', async (req, reply) => {
 });
 
 app.post('/api/v1/admin/forms/:slug/publish', async (req, reply) => {
-  requireAdmin(req, reply);
+  requireAdminApi(req, reply);
   const slug = (req.params as { slug: string }).slug;
   const draft = drafts.get(slug);
   const source = draft ?? forms.get(slug);
@@ -638,7 +723,7 @@ app.post('/api/v1/admin/forms/:slug/publish', async (req, reply) => {
 });
 
 app.delete('/api/v1/admin/forms/:slug', async (req, reply) => {
-  requireAdmin(req, reply);
+  requireAdminApi(req, reply);
   const slug = (req.params as { slug: string }).slug;
   const query = (req.query ?? {}) as Record<string, unknown>;
 
