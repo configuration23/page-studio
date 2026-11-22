@@ -146,6 +146,24 @@ export class StateStore {
     this.emitter.emit(this.key(slug, sid), { ...change, version: this.version });
   }
 
+  /** Удаление страницы: убираем значения всех её сессий и снимки с диска. */
+  removeForm(slug: string): void {
+    this.byForm.delete(slug);
+    try {
+      for (const file of readdirSync(this.dir)) {
+        if (file.startsWith(`${slug}.`) && file.endsWith('.json')) {
+          try {
+            unlinkSync(join(this.dir, file));
+          } catch {
+            // файл уже убран
+          }
+        }
+      }
+    } catch {
+      // каталога нет — чистить нечего
+    }
+  }
+
   subscribe(slug: string, sid: string, listener: (change: Change) => void): () => void {
     const key = this.key(slug, sid);
     this.emitter.on(key, listener);

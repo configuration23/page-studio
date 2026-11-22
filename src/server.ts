@@ -100,6 +100,41 @@ function authorized(req: FastifyRequest): boolean {
   return sameToken(header.slice(7).trim());
 }
 
+function safeEqual(left: string, right: string): boolean {
+  const a = Buffer.from(left);
+  const b = Buffer.from(right);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/** Вход в админку: HTTP Basic, логин и пароль из конфига. */
+function isAdmin(req: FastifyRequest): boolean {
+  if (!config.adminPassword) return false;
+  const header = req.headers.authorization;
+  if (!header || !header.toLowerCase().startsWith('basic ')) return false;
+  let decoded: string;
+  try {
+    decoded = Buffer.from(header.slice(6).trim(), 'base64').toString('utf8');
+  } catch {
+    return false;
+  }
+  const colon = decoded.indexOf(':');
+  if (colon < 0) return false;
+  return (
+    safeEqual(decoded.slice(0, colon), config.adminUser) &&
+    safeEqual(decoded.slice(colon + 1), config.adminPassword)
+  );
+}
+
+function requireAdmin(req: FastifyRequest, reply: FastifyReply): void {
+  if (!config.adminPassword) {
+    throw new HttpError(503, 'админка выключена: задайте ADMIN_USER и ADMIN_PASSWORD');
+  }
+  if (!isAdmin(req)) {
+    reply.header('www-authenticate', 'Basic realm="page-studio admin", charset="UTF-8"');
+    throw new HttpError(401, 'нужен вход в админку');
+  }
+}
+
 function getForm(slug: string): Form {
   const form = forms.get(slug);
   if (!form) throw new HttpError(404, `формы «${slug}» нет`);
@@ -198,7 +233,8 @@ app.get('/health', async () => ({
 app.get('/p/:slug', async (req, reply) => {
   const slug = (req.params as { slug: string }).slug;
   const query = (req.query ?? {}) as Record<string, unknown>;
-  // ?draft=1 — предпросмотр черновика: то, что ещё не опубликовано.
+  // ?draft=1 — предпросмотр черновика: только для админа, страница ещё не опубликована.
+  if (query.draft === '1') requireAdmin(req, reply);
   const form = query.draft === '1' ? (drafts.get(slug) ?? getForm(slug)) : getForm(slug);
   const sid = ensureSid(req, reply);
   const values = state.values(form, sid);
@@ -447,18 +483,21 @@ function compactForm(form: Form) {
   };
 }
 
-app.get('/admin', async (_req, reply) => {
+app.get('/admin', async (req, reply) => {
+  requireAdmin(req, reply);
   return reply.type('text/html; charset=utf-8').send(renderAdmin());
 });
 
-app.get('/admin.css', async (_req, reply) => {
+app.get('/admin.css', async (req, reply) => {
+  requireAdmin(req, reply);
   return reply
     .type('text/css; charset=utf-8')
     .header('cache-control', 'no-cache')
     .send(readFileSync(join(process.cwd(), 'assets', 'admin.css'), 'utf8'));
 });
 
-app.get('/admin.js', async (_req, reply) => {
+app.get('/admin.js', async (req, reply) => {
+  requireAdmin(req, reply);
   return reply
     .type('text/javascript; charset=utf-8')
     .header('cache-control', 'no-cache')
@@ -472,25 +511,30 @@ function adminForm(slug: string): Form {
   return form;
 }
 
-app.get('/api/v1/admin/forms', async () => ({
-  forms: [...forms.values()].map((published) => {
-    const draft = drafts.get(published.slug);
-    const shown = draft ?? published;
-    return {
-      slug: published.slug,
-      title: shown.title,
-      elements: shown.elements.length,
-      hasDraft: Boolean(draft),
-    };
-  }),
-}));
+app.get('/api/v1/admin/forms', async (req, reply) => {
+  requireAdmin(req, reply);
+  return {
+    forms: [...forms.values()].map((published) => {
+      const draft = drafts.get(published.slug);
+      const shown = draft ?? published;
+      return {
+        slug: published.slug,
+        title: shown.title,
+        elements: shown.elements.length,
+        hasDraft: Boolean(draft),
+      };
+    }),
+  };
+});
 
-app.get('/api/v1/admin/forms/:slug', async (req) => {
+app.get('/api/v1/admin/forms/:slug', async (req, reply) => {
+  requireAdmin(req, reply);
   const slug = (req.params as { slug: string }).slug;
   return { form: adminForm(slug), hasDraft: drafts.has(slug) };
 });
 
-app.post('/api/v1/admin/forms', async (req) => {
+app.post('/api/v1/admin/forms', async (req, reply) => {
+  requireAdmin(req, reply);
   const body = (req.body ?? {}) as { slug?: unknown; title?: unknown };
   const slug = String(body.slug ?? '')
     .trim()
@@ -526,7 +570,8 @@ app.post('/api/v1/admin/forms', async (req) => {
   return { form };
 });
 
-app.put('/api/v1/admin/forms/:slug', async (req) => {
+app.put('/api/v1/admin/forms/:slug', async (req, reply) => {
+  requireAdmin(req, reply);
   const slug = (req.params as { slug: string }).slug;
   if (!forms.has(slug)) throw new HttpError(404, `формы «${slug}» нет`);
 
@@ -554,7 +599,8 @@ app.put('/api/v1/admin/forms/:slug', async (req) => {
   return { ok: true, draft: true, methods: methodsOf(form).map((method) => method.name) };
 });
 
-app.post('/api/v1/admin/forms/:slug/publish', async (req) => {
+app.post('/api/v1/admin/forms/:slug/publish', async (req, reply) => {
+  requireAdmin(req, reply);
   const slug = (req.params as { slug: string }).slug;
   const draft = drafts.get(slug);
   const source = draft ?? forms.get(slug);
@@ -576,6 +622,35 @@ app.post('/api/v1/admin/forms/:slug/publish', async (req) => {
   }
   log.add({ kind: 'value', page: slug, name: 'admin.publish', ok: true });
   return { ok: true, methods: methodsOf(source).map((method) => method.name) };
+});
+
+app.delete('/api/v1/admin/forms/:slug', async (req, reply) => {
+  requireAdmin(req, reply);
+  const slug = (req.params as { slug: string }).slug;
+  const query = (req.query ?? {}) as Record<string, unknown>;
+
+  if (query.confirm !== slug) {
+    throw new HttpError(400, `для удаления нужен ?confirm=${slug}`);
+  }
+  if (!forms.has(slug) && !drafts.has(slug)) {
+    throw new HttpError(404, `формы «${slug}» нет`);
+  }
+  if (forms.size <= 1 && forms.has(slug)) {
+    throw new HttpError(409, 'последнюю страницу удалять нельзя: порталу нужна хотя бы одна');
+  }
+
+  for (const file of [publishedFile(config.formsDir, slug), draftFile(config.formsDir, slug)]) {
+    try {
+      unlinkSync(file);
+    } catch {
+      // файла могло не быть: страница жила только черновиком
+    }
+  }
+  forms.delete(slug);
+  drafts.delete(slug);
+  state.removeForm(slug);
+  log.add({ kind: 'value', page: slug, name: 'admin.delete', ok: true });
+  return { ok: true, removed: slug };
 });
 
 app.get('/api/v1/log', async (req) => {

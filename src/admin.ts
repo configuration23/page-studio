@@ -18,6 +18,7 @@ export function renderAdmin(): string {
   <span id="draft-badge" class="draft-badge" hidden>черновик</span>
   <a class="btn" id="preview" target="_blank" rel="noopener">Предпросмотр</a>
   <a class="btn" id="open" target="_blank" rel="noopener">Открыть страницу</a>
+  <button class="btn danger" id="delete-page" title="удалить страницу">Удалить</button>
   <span class="spacer"></span>
   <span id="status"></span>
 </header>

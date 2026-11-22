@@ -28,6 +28,8 @@ export type Config = {
   dataDir: string;
   formsDir: string;
   logsDir: string;
+  adminUser: string;
+  adminPassword: string;
   token: string;
   maxImageBytes: number;
   publicUrl: string;
@@ -48,6 +50,8 @@ export function loadConfig(): Config {
     dataDir: process.env.DATA_DIR ?? 'data',
     formsDir: process.env.FORMS_DIR ?? 'data/forms',
     logsDir: process.env.LOGS_DIR ?? 'logs',
+    adminUser: (process.env.ADMIN_USER ?? 'admin').trim() || 'admin',
+    adminPassword: (process.env.ADMIN_PASSWORD ?? '').trim(),
     token,
     maxImageBytes: int(process.env.MAX_IMAGE_BYTES, 20 * 1024 * 1024),
     publicUrl: process.env.PUBLIC_URL ?? `http://127.0.0.1:${port}`,

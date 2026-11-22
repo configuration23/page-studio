@@ -553,6 +553,25 @@
   saveBtn.addEventListener('click', save);
   publishBtn.addEventListener('click', publish);
 
+  $('#delete-page').addEventListener('click', function () {
+    if (!state.form) return;
+    var slug = state.slug;
+    var ok = window.confirm(
+      'Удалить страницу «' + slug + '»?\n\nВместе с ней уйдут файлы формы и значения всех сессий. Отменить это нельзя.'
+    );
+    if (!ok) return;
+    api('/api/v1/admin/forms/' + slug + '?confirm=' + encodeURIComponent(slug), { method: 'DELETE' })
+      .then(function () {
+        return loadForms();
+      })
+      .then(function () {
+        setStatus('страница «' + slug + '» удалена', 'ok');
+      })
+      .catch(function (err) {
+        setStatus('не удалилось: ' + err.message, 'err');
+      });
+  });
+
   var modal = $('#modal');
   var newSlug = $('#new-slug');
   var newTitle = $('#new-title');

@@ -47,5 +47,3 @@ elements:
     props:
       limit: 12
       empty: Здесь появятся сгенерированные картинки
-aliases:
-  text: prompt

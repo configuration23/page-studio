@@ -9,8 +9,12 @@ import { randomBytes } from 'node:crypto';
 
 const BASE = process.env.BASE ?? 'http://127.0.0.1:3000';
 const TOKEN = process.env.PORTAL_TOKEN ?? 'dev-token-local';
+const ADMIN_USER = process.env.ADMIN_USER ?? 'admin';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? 'admin-dev';
 const PAGE = process.env.SMOKE_PAGE ?? 'generation';
 const WAIT_MS = Number(process.env.SMOKE_WAIT_MS ?? 25000);
+
+const adminAuth = `Basic ${Buffer.from(`${ADMIN_USER}:${ADMIN_PASSWORD}`).toString('base64')}`;
 
 let failed = 0;
 const results = [];
@@ -47,6 +51,18 @@ async function main() {
   check('манифест: привязка события', (manifest.body.bindings ?? []).length > 0);
 
   const sid = randomBytes(6).toString('hex');
+
+  const adminClosed = await fetch(`${BASE}/admin`);
+  check('админка без входа закрыта', adminClosed.status === 401, `код ${adminClosed.status}`);
+
+  const adminOpen = await fetch(`${BASE}/admin`, { headers: { authorization: adminAuth } });
+  check('админка открывается с паролем', adminOpen.ok, `код ${adminOpen.status}`);
+
+  const adminApiClosed = await fetch(`${BASE}/api/v1/admin/forms`);
+  check('API админки без входа закрыт', adminApiClosed.status === 401);
+
+  const draftClosed = await fetch(`${BASE}/p/${PAGE}?draft=1`);
+  check('предпросмотр черновика закрыт', draftClosed.status === 401);
 
   const denied = await api(`/api/v1/forms/${PAGE}/values/status?sid=${sid}`, {
     method: 'POST',
