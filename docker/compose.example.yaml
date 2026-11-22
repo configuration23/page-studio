@@ -1,4 +1,11 @@
-# Пример запуска. Портал слушает только localhost: наружу — только nginx.
+# Типовой запуск на домашнем Linux-хосте: портал и n8n в одной сети.
+#
+#   cd page-studio
+#   docker compose -f docker/compose.example.yaml up -d --build
+#
+# Порт публикуется в локальную сеть, потому что n8n с другой машины должен
+# достучаться до API портала. На роутере этот порт наружу НЕ пробрасывайте:
+# если нужен доступ из интернета — только через nginx с TLS и паролем.
 services:
   page-studio:
     build:
@@ -10,7 +17,7 @@ services:
       HOST: 0.0.0.0
       DATA_DIR: /app/data
     ports:
-      - "127.0.0.1:3000:3000"
+      - "${PORTAL_PORT:-3000}:3000"
     volumes:
       - ../data:/app/data
     healthcheck:

@@ -32,12 +32,28 @@ sudo mkdir -p data/state data/generations logs
 sudo chown -R 1000:1000 data logs
 
 docker compose -f docker/compose.example.yaml up -d --build
+docker compose -f docker/compose.example.yaml ps
 curl -s http://127.0.0.1:3000/health
 ```
 
-Портал слушает только `127.0.0.1:3000`. Наружу — через nginx
-([пример](../docker/nginx.conf.example)): basic auth на `/admin`, TLS,
-`proxy_read_timeout 300s` и `proxy_buffering off` для SSE.
+Порт публикуется в локальную сеть (`${PORTAL_PORT:-3000}`), потому что бэкенд с
+другой машины должен достучаться до API портала. На роутере этот порт наружу **не
+пробрасывайте**: если нужен доступ из интернета — только nginx с TLS и паролем
+([пример](../docker/nginx.conf.example)), `proxy_read_timeout 300s` и
+`proxy_buffering off` для SSE.
+
+На хосте с SELinux (Fedora, RHEL) добавьте `:z` к монтированию:
+`- ../data:/app/data:z`.
+
+## Где какой адрес
+
+| Кто кого вызывает | Адрес | Где задаётся |
+|---|---|---|
+| портал → бэкенд (событие) | `http://<хост-n8n>:5678/webhook/...` | `data/bindings.yaml` |
+| бэкенд → портал (статус, картинка) | `http://<адрес-портала>:3000` | в настройках воркфлоу |
+| браузер → портал | `http://<адрес-портала>:3000/p/<slug>` | — |
+
+Адрес хоста: `hostname -I`. Админка — `http://<адрес-портала>:3000/admin`.
 
 ## Проверка после установки
 
