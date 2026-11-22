@@ -72,7 +72,7 @@ curl -X POST "$PORTAL/api/v1/forms/generation/values/status?sid=$SID" \
   -d '{"value":{"state":"running","text":"работаю"}}'
 
 # 2. картинка — байтами, не ссылкой
-curl -X POST "$PORTAL/api/v1/forms/generation/values/image?sid=$SID&note=промпт" \
+curl -X POST "$PORTAL/api/v1/forms/generation/values/image?sid=$SID&note=prompt" \
   -H "authorization: Bearer $PORTAL_TOKEN" \
   -H "content-type: image/png" \
   --data-binary @result.png
@@ -82,6 +82,14 @@ curl -X POST "$PORTAL/api/v1/forms/generation/values/status?sid=$SID" \
   -H "authorization: Bearer $PORTAL_TOKEN" \
   -H "content-type: application/json" \
   -d '{"value":{"state":"done","text":"готово"}}'
+```
+
+**Подпись к картинке кодируйте.** `note` идёт в адресе, а сырые не-ASCII байты в
+строке запроса Node отклоняет ещё до приложения: снаружи это `400 Bad Request`, и в
+журнале портала запроса не будет — легко искать не там. В n8n:
+
+```
+.../values/image?sid={{ $('Webhook').item.json.body.sid }}&note={{ encodeURIComponent($json.body.values.memo || '') }}
 ```
 
 Чтение значений — `GET .../values/<id>?sid=...`; список методов страницы —
