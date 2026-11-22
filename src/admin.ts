@@ -13,6 +13,7 @@ export function renderAdmin(): string {
   <span class="brand">page-studio <span>· админка</span></span>
   <select id="form-select" title="страница"></select>
   <button class="btn" id="new-page" title="создать страницу">+ Страница</button>
+  <button class="btn" id="page-settings" title="настройки страницы">Страница</button>
   <button class="btn" id="save">Сохранить</button>
   <button class="btn primary" id="publish">Опубликовать</button>
   <span id="draft-badge" class="draft-badge" hidden>черновик</span>
@@ -27,6 +28,12 @@ export function renderAdmin(): string {
     <h3>Палитра</h3>
     <div id="palette"></div>
     <div class="muted">Клик — элемент появляется на канвасе. Имя элемента станет именем метода.</div>
+    <div class="snap-panel">
+      <label><input type="checkbox" id="snap-enabled" checked> <b>Магнит</b></label>
+      <label><input type="checkbox" id="snap-edges" checked> края элементов</label>
+      <label><input type="checkbox" id="snap-centers" checked> центры элементов</label>
+      <label><input type="checkbox" id="snap-canvas" checked> края и центр канваса</label>
+    </div>
   </aside>
   <section id="stage">
     <div id="canvas"></div>
@@ -42,6 +49,20 @@ export function renderAdmin(): string {
     <div class="modal-actions">
       <button class="btn" id="new-cancel">Отмена</button>
       <button class="btn primary" id="new-create">Создать</button>
+    </div>
+  </div>
+</div>
+<div class="modal" id="page-modal" hidden>
+  <div class="modal-box">
+    <h3>Страница</h3>
+    <label>Заголовок<input id="page-title" autocomplete="off"></label>
+    <label>Подпись<input id="page-lead" autocomplete="off"></label>
+    <label>Ширина, px<input id="page-width" type="number" min="320" max="1920" step="10"></label>
+    <label>Высота, px<input id="page-height" type="number" min="200" max="8000" step="10" placeholder="авто"></label>
+    <p class="modal-hint">Пустая высота — страница по содержимому. Заданная — фиксированная; элемент ниже границы подсвечивается на канвасе.</p>
+    <div class="modal-actions">
+      <button class="btn" id="page-cancel">Отмена</button>
+      <button class="btn primary" id="page-apply">Применить</button>
     </div>
   </div>
 </div>

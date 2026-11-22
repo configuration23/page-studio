@@ -94,6 +94,134 @@
 
   var VALUE_KINDS = ['edit', 'memo', 'combo', 'check', 'image', 'gallery', 'status'];
   var SNAP = 8;
+  var MAGNET_PX = 6;
+  var snapSettings = { enabled: true, edges: true, centers: true, canvas: true };
+  var guideV = null;
+  var guideH = null;
+
+  function loadSnapSettings() {
+    try {
+      var raw = localStorage.getItem('ps.snap');
+      if (!raw) return;
+      var saved = JSON.parse(raw);
+      snapSettings.enabled = saved.enabled !== false;
+      snapSettings.edges = saved.edges !== false;
+      snapSettings.centers = saved.centers !== false;
+      snapSettings.canvas = saved.canvas !== false;
+    } catch (e) {
+      /* localStorage может быть недоступен — остаются значения по умолчанию */
+    }
+  }
+
+  function saveSnapSettings() {
+    try {
+      localStorage.setItem('ps.snap', JSON.stringify(snapSettings));
+    } catch (e) {
+      /* не критично */
+    }
+  }
+
+  function syncSnapInputs() {
+    $('#snap-enabled').checked = snapSettings.enabled;
+    $('#snap-edges').checked = snapSettings.edges;
+    $('#snap-centers').checked = snapSettings.centers;
+    $('#snap-canvas').checked = snapSettings.canvas;
+  }
+
+  function collectTargets(exclude) {
+    var xs = [];
+    var ys = [];
+    var c = state.form.canvas;
+    if (snapSettings.canvas) {
+      xs.push(0, c.width / 2, c.width);
+      ys.push(0);
+      if (c.height) ys.push(c.height);
+    }
+    state.form.elements.forEach(function (other) {
+      if (other === exclude || other.hidden) return;
+      if (snapSettings.edges) {
+        xs.push(other.x, other.x + other.w);
+        ys.push(other.y, other.y + other.h);
+      }
+      if (snapSettings.centers) {
+        xs.push(other.x + other.w / 2);
+        ys.push(other.y + other.h / 2);
+      }
+    });
+    return { xs: xs, ys: ys };
+  }
+
+  function nearest(value, candidates) {
+    var best = null;
+    for (var i = 0; i < candidates.length; i++) {
+      var delta = candidates[i] - value;
+      if (Math.abs(delta) <= MAGNET_PX && (best === null || Math.abs(delta) < Math.abs(best.delta))) {
+        best = { delta: delta, at: candidates[i] };
+      }
+    }
+    return best;
+  }
+
+  function magnetX(el, exclude) {
+    if (!snapSettings.enabled || !state.form) return { delta: 0, guide: null };
+    var targets = collectTargets(exclude).xs;
+    var points = [el.x, el.x + el.w / 2, el.x + el.w];
+    var best = null;
+    points.forEach(function (point) {
+      var hit = nearest(point, targets);
+      if (hit && (!best || Math.abs(hit.delta) < Math.abs(best.delta))) {
+        best = hit;
+      }
+    });
+    return best ? { delta: best.delta, guide: best.at } : { delta: 0, guide: null };
+  }
+
+  function magnetY(el, exclude) {
+    if (!snapSettings.enabled || !state.form) return { delta: 0, guide: null };
+    var targets = collectTargets(exclude).ys;
+    var points = [el.y, el.y + el.h / 2, el.y + el.h];
+    var best = null;
+    points.forEach(function (point) {
+      var hit = nearest(point, targets);
+      if (hit && (!best || Math.abs(hit.delta) < Math.abs(best.delta))) {
+        best = hit;
+      }
+    });
+    return best ? { delta: best.delta, guide: best.at } : { delta: 0, guide: null };
+  }
+
+  function ensureGuides() {
+    if (guideV && guideH) return;
+    guideV = document.createElement('div');
+    guideV.className = 'guide v';
+    guideH = document.createElement('div');
+    guideH.className = 'guide h';
+  }
+
+  function showGuideX(x) {
+    ensureGuides();
+    if (x === null) {
+      if (guideV.parentNode) guideV.remove();
+      return;
+    }
+    guideV.style.left = Math.round(x) + 'px';
+    if (!guideV.parentNode) canvas.appendChild(guideV);
+  }
+
+  function showGuideY(y) {
+    ensureGuides();
+    if (y === null) {
+      if (guideH.parentNode) guideH.remove();
+      return;
+    }
+    guideH.style.top = Math.round(y) + 'px';
+    if (!guideH.parentNode) canvas.appendChild(guideH);
+  }
+
+  function hideGuides() {
+    showGuideX(null);
+    showGuideY(null);
+  }
 
   var state = { slug: null, form: null, selected: null, dirty: false, dragging: false, hasDraft: false };
   var history = [];
@@ -276,7 +404,10 @@
     state.form.elements.forEach(function (el) {
       bottom = Math.max(bottom, el.y + el.h);
     });
-    canvas.style.height = bottom + 160 + 'px';
+    var fixed = state.form.canvas.height;
+    canvas.style.height = (fixed || bottom + 160) + 'px';
+    // если элемент вылез за заданную высоту — подсвечиваем поле
+    canvas.classList.toggle('overflow', Boolean(fixed) && bottom > fixed);
     canvas.innerHTML = '';
     state.form.elements.forEach(function (el) {
       var node = document.createElement('div');
@@ -315,13 +446,22 @@
         var maxX = state.form.canvas.width - el.w;
         el.x = Math.max(0, Math.min(maxX, snap(originX + dx)));
         el.y = Math.max(0, snap(originY + dy));
+
+        var mx = magnetX(el, el);
+        if (mx.delta) el.x = Math.max(0, Math.min(maxX, el.x + Math.round(mx.delta)));
+        var my = magnetY(el, el);
+        if (my.delta) el.y = Math.max(0, el.y + Math.round(my.delta));
+
         node.style.left = el.x + 'px';
         node.style.top = el.y + 'px';
+        showGuideX(mx.guide);
+        showGuideY(my.guide);
         updateRectInputs(el);
       }
 
       function up() {
         state.dragging = false;
+        hideGuides();
         node.removeEventListener('pointermove', move);
         node.removeEventListener('pointerup', up);
         node.removeEventListener('pointercancel', up);
@@ -355,8 +495,20 @@
         var maxW = state.form.canvas.width - el.x;
         el.w = Math.max(64, Math.min(maxW, snap(originW + dx)));
         el.h = Math.max(24, snap(originH + dy));
+
+        // тянем правый/нижний край — он тоже магнитится к целям
+        if (snapSettings.enabled) {
+          var targets = collectTargets(el);
+          var hitX = nearest(el.x + el.w, targets.xs);
+          if (hitX) el.w = Math.max(64, Math.min(maxW, el.w + Math.round(hitX.delta)));
+          var hitY = nearest(el.y + el.h, targets.ys);
+          if (hitY) el.h = Math.max(24, el.h + Math.round(hitY.delta));
+        }
+
         node.style.width = el.w + 'px';
         node.style.height = el.h + 'px';
+        showGuideX(null);
+        showGuideY(null);
         updateRectInputs(el);
       }
 
@@ -642,6 +794,75 @@
       .catch(function (err) {
         setStatus('не удалилось: ' + err.message, 'err');
       });
+  });
+
+  var pageModal = $('#page-modal');
+
+  $('#page-settings').addEventListener('click', function () {
+    if (!state.form) return;
+    $('#page-title').value = state.form.title || '';
+    $('#page-lead').value = state.form.lead || '';
+    $('#page-width').value = state.form.canvas.width;
+    $('#page-height').value = state.form.canvas.height || '';
+    pageModal.hidden = false;
+    $('#page-title').focus();
+  });
+
+  $('#page-cancel').addEventListener('click', function () {
+    pageModal.hidden = true;
+  });
+
+  pageModal.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') pageModal.hidden = true;
+    if (event.key === 'Enter') $('#page-apply').click();
+  });
+
+  $('#page-apply').addEventListener('click', function () {
+    if (!state.form) return;
+    var title = $('#page-title').value.trim();
+    if (!title) {
+      setStatus('заголовок не может быть пустым', 'err');
+      return;
+    }
+    snapshot();
+    state.form.title = title;
+    var lead = $('#page-lead').value.trim();
+    if (lead) state.form.lead = lead;
+    else delete state.form.lead;
+
+    var width = parseInt($('#page-width').value, 10);
+    if (width >= 320 && width <= 1920) state.form.canvas.width = width;
+
+    var heightRaw = $('#page-height').value.trim();
+    var height = parseInt(heightRaw, 10);
+    if (heightRaw && height >= 200 && height <= 8000) state.form.canvas.height = height;
+    else delete state.form.canvas.height;
+
+    // после смены ширины элементы не должны вылезать за канвас
+    state.form.elements.forEach(function (el) {
+      if (el.w > state.form.canvas.width) el.w = state.form.canvas.width;
+      if (el.x + el.w > state.form.canvas.width) el.x = Math.max(0, state.form.canvas.width - el.w);
+    });
+
+    pageModal.hidden = true;
+    renderAll();
+    markDirty();
+    setStatus('настройки страницы применены');
+  });
+
+  loadSnapSettings();
+  syncSnapInputs();
+
+  [
+    ['snap-enabled', 'enabled'],
+    ['snap-edges', 'edges'],
+    ['snap-centers', 'centers'],
+    ['snap-canvas', 'canvas']
+  ].forEach(function (pair) {
+    $('#' + pair[0]).addEventListener('change', function (event) {
+      snapSettings[pair[1]] = event.target.checked;
+      saveSnapSettings();
+    });
   });
 
   var modal = $('#modal');

@@ -138,7 +138,7 @@ export function renderPage(
 ): string {
   const width = form.canvas.width;
   const bottom = Math.max(...form.elements.map((el) => el.y + el.h), 320);
-  const height = bottom + 40;
+  const height = form.canvas.height ?? bottom + 40;
 
   const elements = form.elements
     .map((el) => renderElement(el, values[el.id], galleries[el.id] ?? []))

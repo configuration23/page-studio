@@ -73,7 +73,11 @@ export const formSchema = z
     title: z.string().min(1).max(120),
     lead: z.string().max(600).optional(),
     canvas: z
-      .object({ width: z.number().int().min(320).max(1920).default(960) })
+      .object({
+        width: z.number().int().min(320).max(1920).default(960),
+        /** Если задана — страница такой высоты; иначе по содержимому. */
+        height: z.number().int().min(200).max(8000).optional(),
+      })
       .default({ width: 960 }),
     elements: z.array(elementSchema).min(1).max(40),
     /** Старые имена элементов: `{ "prompt": "text" }` — метод жив, пока алиас жив. */

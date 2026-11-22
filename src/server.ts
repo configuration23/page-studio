@@ -469,7 +469,10 @@ function compactForm(form: Form) {
     slug: form.slug,
     title: form.title,
     ...(form.lead ? { lead: form.lead } : {}),
-    canvas: { width: form.canvas.width },
+    canvas: {
+      width: form.canvas.width,
+      ...(form.canvas.height ? { height: form.canvas.height } : {}),
+    },
     elements: form.elements.map((el) => {
       const out: Record<string, unknown> = {
         id: el.id,
