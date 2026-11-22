@@ -2,16 +2,86 @@
   'use strict';
 
   var KINDS = [
-    { kind: 'label', name: 'Текст', ic: 'T', props: ['text', 'size'] },
-    { kind: 'edit', name: 'Строка', ic: 'Ab', props: ['placeholder', 'max', 'value'] },
-    { kind: 'memo', name: 'Абзац', ic: '¶', props: ['placeholder', 'max', 'value'] },
-    { kind: 'combo', name: 'Выбор', ic: '▾', props: ['options', 'value'] },
-    { kind: 'check', name: 'Флажок', ic: '☑', props: [] },
-    { kind: 'button', name: 'Кнопка', ic: '⚡', props: ['primary'] },
-    { kind: 'image', name: 'Картинка', ic: '▣', props: [] },
-    { kind: 'gallery', name: 'Галерея', ic: '▦', props: ['limit', 'empty'] },
-    { kind: 'list', name: 'Список', ic: '≡', props: ['empty'] },
-    { kind: 'status', name: 'Статус', ic: '◉', props: [] }
+    {
+      kind: 'label',
+      name: 'Текст',
+      ic: 'T',
+      props: ['text', 'size'],
+      hint: 'статичный текст, не метод',
+      detail: 'Надпись на странице: заголовок, пояснение, подпись к блоку. Метода у неё нет — бэкенд этот элемент не видит и не меняет. Поле «текст» — что именно показать.'
+    },
+    {
+      kind: 'edit',
+      name: 'Строка',
+      ic: 'Ab',
+      props: ['placeholder', 'max', 'value'],
+      hint: 'одна строка ввода',
+      detail: 'Однострочное поле. Метод «<страница>.<id>» отдаёт введённый текст бэкенду, событие on_change срабатывает при уходе из поля, post_<id> записывает текст со стороны бэкенда. «Лимит» — сколько символов разрешено.'
+    },
+    {
+      kind: 'memo',
+      name: 'Абзац',
+      ic: '¶',
+      props: ['placeholder', 'max', 'value'],
+      hint: 'многострочный текст',
+      detail: 'Поле в несколько строк: промпты, сообщения, описания. Всё как у строки, но с переносами; лимит считается в символах.'
+    },
+    {
+      kind: 'combo',
+      name: 'Выбор',
+      ic: '▾',
+      props: ['options', 'value'],
+      hint: 'выбор из вариантов',
+      detail: 'Список вариантов на выбор. «Варианты» — по одному в строке. Бэкенд получает выбранную строку, а post_<id> может установить любой из вариантов. Значение по умолчанию — первый вариант.'
+    },
+    {
+      kind: 'check',
+      name: 'Флажок',
+      ic: '☑',
+      props: [],
+      hint: 'флажок да/нет',
+      detail: 'Галочка: значение true или false. Годится для согласий и переключателей. Подпись — текст рядом с флажком, событие on_change уходит при переключении.'
+    },
+    {
+      kind: 'button',
+      name: 'Кнопка',
+      ic: '⚡',
+      props: ['primary'],
+      hint: 'событие по клику',
+      detail: 'Кнопка ничего не хранит. По клику она отправляет бэкенду событие on_<id> вместе со снимком всей формы. Результат появляется позже, через post_... других элементов — обычно статуса и картинки.'
+    },
+    {
+      kind: 'image',
+      name: 'Картинка',
+      ic: '▣',
+      props: [],
+      hint: 'одна картинка от бэкенда',
+      detail: 'Место под одно изображение. Бэкенд кладёт его запросом post_<id> (байты с Content-Type image/png или другим image/*), портал хранит файл и отдаёт по /media/<id>. Сама страница ничего не запрашивает.'
+    },
+    {
+      kind: 'gallery',
+      name: 'Галерея',
+      ic: '▦',
+      props: ['limit', 'empty'],
+      hint: 'лента картинок страницы',
+      detail: 'Показывает последние картинки, которые бэкенд положил на эту страницу. Отдельно в неё писать не нужно: как только бэкенд отправляет image, картинка появляется в галерее. «Штук» — сколько показывать.'
+    },
+    {
+      kind: 'list',
+      name: 'Список',
+      ic: '≡',
+      props: ['empty'],
+      hint: 'строки от бэкенда',
+      detail: 'Список строк от бэкенда: шаги обработки, статусы, названия. В отличие от галереи это текст, а не картинки. Запись — post_<id> с массивом строк (до 100 штук), каждая до 300 символов. «Пусто» — что показать, пока данных нет.'
+    },
+    {
+      kind: 'status',
+      name: 'Статус',
+      ic: '◉',
+      props: [],
+      hint: 'состояние обработки',
+      detail: 'Бейдж состояния: ожидание, в очереди, рисует, готово, ошибка. Бэкенд пишет его запросом post_<id> с полями state и text. Страница обновляется сама, перезагружать не нужно.'
+    }
   ];
 
   var EVENTS = {
@@ -154,8 +224,8 @@
   function renderPalette() {
     palette.innerHTML = KINDS.map(function (item) {
       return (
-        '<button data-kind="' + item.kind + '"><span class="ic">' + item.ic + '</span>' +
-        '<span>' + item.name + '<span class="hint">' + item.kind + '</span></span></button>'
+        '<button data-kind="' + item.kind + '" title="' + escapeHtml(item.hint) + '"><span class="ic">' + item.ic + '</span>' +
+        '<span>' + item.name + '<span class="hint">' + escapeHtml(item.hint) + '</span></span></button>'
       );
     }).join('');
   }
@@ -432,9 +502,11 @@
     }
 
     var html = '<h3>Элемент</h3>';
+    var info = KINDS.filter(function (k) { return k.kind === el.kind; })[0];
     html += row('id', '<input type="text" data-prop="id" value="' + escapeHtml(el.id) + '" title="имя элемента = имя метода; переименование меняет контракт с бэкендом">');
     html += '<div class="muted" style="padding:0 14px 8px">метод: ' + escapeHtml(state.slug) + '.<b>' + escapeHtml(el.id) + '</b></div>';
-    html += row('вид', '<input type="text" value="' + el.kind + '" disabled>');
+    html += row('вид', '<input type="text" value="' + escapeHtml(info.name) + '" disabled>');
+    html += '<details class="help"><summary>? что это и как заполнять</summary><div>' + escapeHtml(info.detail) + '</div></details>';
     if (el.kind !== 'status') html += row('подпись', textInput('label', el.label));
     html += '<div class="row pair"><label>прямоуг.</label>' + numberInput('x', el.x) + numberInput('y', el.y) + '</div>';
     html += '<div class="row pair"><label>размер</label>' + numberInput('w', el.w) + numberInput('h', el.h) + '</div>';

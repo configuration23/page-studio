@@ -104,7 +104,8 @@
       if (input && input !== document.activeElement) input.value = value == null ? '' : value;
     } else if (kind === 'combo') {
       var select = node.querySelector('select');
-      if (select) select.value = value == null ? '' : value;
+      // пока человек выбирает — не перебиваем его выбор пришедшим состоянием
+      if (select && select !== document.activeElement) select.value = value == null ? '' : value;
     } else if (kind === 'check') {
       var box = node.querySelector('input[type="checkbox"]');
       if (box) box.checked = !!value;

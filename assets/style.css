@@ -43,6 +43,9 @@ body {
   background: var(--form);
   border-radius: 18px;
   color: var(--ink);
+  /* форма светлая: без этого браузер в тёмной теме рисует select/option
+     своими цветами — текст пропадает на белом фоне */
+  color-scheme: light;
   transform-origin: top left;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
@@ -71,6 +74,10 @@ body {
 }
 .inp:hover { border-color: #c2cad6; }
 .inp:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79, 140, 255, 0.16); }
+
+/* Выпадающий список: не даём браузеру перекрасить варианты под тёмную тему. */
+select.inp { min-height: 32px; }
+.inp option { color: #161a20; background: #fff; }
 
 .btn {
   width: 100%;
