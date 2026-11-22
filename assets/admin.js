@@ -563,8 +563,8 @@
     return {};
   }
 
-  // ����������� ������ ��������: ������� (���� ����) ���� ��� �������.
-  // ������ ������ ������ � ����� ����� �� ���������� � ����������.
+  // Минимальный размер элемента: подпись (если есть) плюс сам контрол.
+  // Меньше делать нельзя — иначе текст не помещается и «пропадает».
   function minSize(el) {
     var cap = el.label ? 22 : 0;
     switch (el.kind) {
@@ -591,6 +591,7 @@
         return { w: 64, h: 24 };
     }
   }
+
   function defaultSize(kind) {
     if (kind === 'button') return { w: 200, h: 48 };
     if (kind === 'image') return { w: 320, h: 320 };
@@ -898,6 +899,97 @@
     });
   });
 
+  // --- API-токены ------------------------------------------------------------
+
+  var tokensModal = $('#tokens-modal');
+  var tokenFresh = $('#token-fresh');
+
+  function renderTokens(list) {
+    var box = $('#token-list');
+    if (!list.length) {
+      box.innerHTML = '<div class="token-row empty">Токенов пока нет</div>';
+      return;
+    }
+    box.innerHTML = list
+      .map(function (item) {
+        var created = new Date(item.createdAt).toLocaleDateString();
+        var used = item.lastUsedAt ? new Date(item.lastUsedAt).toLocaleString() : 'не использовался';
+        return (
+          '<div class="token-row">' +
+          '<span class="name">' + escapeHtml(item.name) + '</span>' +
+          '<span class="meta">создан ' + created + '<br>' + used + '</span>' +
+          '<button class="btn danger" data-revoke="' + escapeHtml(item.id) + '">Отозвать</button>' +
+          '</div>'
+        );
+      })
+      .join('');
+  }
+
+  function loadTokens() {
+    return api('/api/v1/admin/tokens')
+      .then(function (data) {
+        renderTokens(data.tokens || []);
+      })
+      .catch(function (err) {
+        setStatus('токены не загрузились: ' + err.message, 'err');
+      });
+  }
+
+  $('#tokens-open').addEventListener('click', function () {
+    tokenFresh.hidden = true;
+    $('#token-name').value = '';
+    tokensModal.hidden = false;
+    loadTokens();
+  });
+
+  $('#token-close').addEventListener('click', function () {
+    tokensModal.hidden = true;
+  });
+
+  tokensModal.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') tokensModal.hidden = true;
+    if (event.key === 'Enter') $('#token-create').click();
+  });
+
+  $('#token-create').addEventListener('click', function () {
+    var name = $('#token-name').value.trim();
+    if (!name) {
+      setStatus('нужно имя токена', 'err');
+      return;
+    }
+    api('/api/v1/admin/tokens', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: name })
+    })
+      .then(function (data) {
+        $('#token-value').value = data.token;
+        tokenFresh.hidden = false;
+        $('#token-name').value = '';
+        return loadTokens();
+      })
+      .catch(function (err) {
+        setStatus('токен не создался: ' + err.message, 'err');
+      });
+  });
+
+  $('#token-copy').addEventListener('click', function () {
+    var value = $('#token-value').value;
+    if (navigator.clipboard) navigator.clipboard.writeText(value);
+    setStatus('токен скопирован', 'ok');
+  });
+
+  $('#token-list').addEventListener('click', function (event) {
+    var button = event.target.closest('button[data-revoke]');
+    if (!button) return;
+    if (!window.confirm('Отозвать токен? Скрипты с ним перестанут работать.')) return;
+    api('/api/v1/admin/tokens/' + encodeURIComponent(button.dataset.revoke), { method: 'DELETE' })
+      .then(loadTokens)
+      .catch(function (err) {
+        setStatus('не отозвался: ' + err.message, 'err');
+      });
+  });
+
   var modal = $('#modal');
   var newSlug = $('#new-slug');
   var newTitle = $('#new-title');
@@ -1007,6 +1099,7 @@
       el.x = Math.min(el.x, Math.max(0, maxX));
     }
     if (prop === 'label') {
+      // подпись занимает место — элемент подрастает до своего минимума
       var need = minSize(el);
       el.w = Math.max(el.w, need.w);
       el.h = Math.max(el.h, need.h);
@@ -1024,7 +1117,7 @@
     var el = selected();
     var prop = event.target.dataset && event.target.dataset.prop;
     if (!el || (prop !== 'w' && prop !== 'h')) return;
-    // ������ ��� ���� ������ �� �������� � ���������� ����������� ��������
+    // размер мог быть поднят до минимума — показываем фактическое значение
     event.target.value = el[prop];
   });
 

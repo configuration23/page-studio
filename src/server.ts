@@ -13,7 +13,14 @@ import { ImageStore } from './store.js';
 import { CallLog } from './log.js';
 import { renderIndex, renderNotFound, renderPage } from './render.js';
 import { renderAdmin, renderLogin } from './admin.js';
-import { checkCredentials, createSessionToken, verifySessionToken } from './auth.js';
+import {
+  checkCredentials,
+  createSessionToken,
+  newSessionId,
+  sessionIdFromToken,
+  verifySessionToken,
+} from './auth.js';
+import { TokenStore } from './tokens.js';
 import { EVENTS_OF, VALUE_KINDS, elementById, formSchema, methodsOf, resolveElement, type Element, type Form } from './model.js';
 
 const config = loadConfig();
@@ -141,36 +148,40 @@ const adminSecret =
   (process.env.ADMIN_SESSION_SECRET ?? '').trim() ||
   createHash('sha256').update(`page-studio:${config.adminPassword}`).digest('hex');
 
-function basicCredentials(req: FastifyRequest): boolean {
-  if (!config.adminPassword) return false;
+/** Растёт при выходе: все выданные сессии перестают работать. */
+const activeSessions = new Set<string>();
+
+/** Токены для API: создаются и отзываются в админке. */
+const tokens = new TokenStore(config.dataDir);
+
+function bearerToken(req: FastifyRequest): string | null {
   const header = req.headers.authorization;
-  if (!header || !header.toLowerCase().startsWith('basic ')) return false;
-  let decoded: string;
-  try {
-    decoded = Buffer.from(header.slice(6).trim(), 'base64').toString('utf8');
-  } catch {
-    return false;
-  }
-  const colon = decoded.indexOf(':');
-  if (colon < 0) return false;
-  return checkCredentials(
-    decoded.slice(0, colon),
-    decoded.slice(colon + 1),
-    config.adminUser,
-    config.adminPassword,
-  );
+  if (!header || !header.toLowerCase().startsWith('bearer ')) return null;
+  return header.slice(7).trim();
 }
 
-/** Админ — либо сессия из формы входа, либо Basic (для curl и скриптов). */
+/** Сессия из формы входа. */
+function adminSession(req: FastifyRequest): boolean {
+  return verifySessionToken(adminSecret, cookie(req, ADMIN_COOKIE), (sid) => activeSessions.has(sid));
+}
+
+/**
+ * Админ для API: сессия из формы или API-токен.
+ * HTTP Basic не используется: браузер кеширует его и не даёт выйти из админки.
+ */
 function isAdmin(req: FastifyRequest): boolean {
   if (!config.adminPassword) return false;
-  if (basicCredentials(req)) return true;
-  return verifySessionToken(adminSecret, cookie(req, ADMIN_COOKIE));
+  if (adminSession(req)) return true;
+  const token = bearerToken(req);
+  return token ? tokens.verify(token) !== null : false;
 }
 
-/** Страницы админки: без входа — на форму, а не в диалог браузера. */
+/**
+ * Страницы админки: только сессия. Токен — для API, а не для браузера,
+ * иначе браузер с закешированным заголовком не показал бы форму входа.
+ */
 function requireAdminPage(req: FastifyRequest, reply: FastifyReply): boolean {
-  if (isAdmin(req)) return true;
+  if (adminSession(req)) return true;
   const next = encodeURIComponent(req.url.split('?')[0] === '/admin' ? '/admin' : req.url);
   reply.redirect(`/admin/login?next=${next}`, 303);
   return false;
@@ -571,12 +582,16 @@ app.post('/admin/login', async (req, reply) => {
       .send(renderLogin({ next, error: 'Неверный логин или пароль' }));
   }
 
-  setAdminCookie(reply, createSessionToken(adminSecret));
+  const sessionId = newSessionId();
+  activeSessions.add(sessionId);
+  setAdminCookie(reply, createSessionToken(adminSecret, sessionId));
   log.add({ kind: 'value', page: 'admin', name: 'admin.login', ok: true });
   return reply.redirect(next, 303);
 });
 
-app.get('/admin/logout', async (_req, reply) => {
+app.get('/admin/logout', async (req, reply) => {
+  const sessionId = sessionIdFromToken(cookie(req, ADMIN_COOKIE));
+  if (sessionId) activeSessions.delete(sessionId);
   clearAdminCookie(reply);
   return reply.redirect('/admin/login', 303);
 });
@@ -749,6 +764,35 @@ app.delete('/api/v1/admin/forms/:slug', async (req, reply) => {
   state.removeForm(slug);
   log.add({ kind: 'value', page: slug, name: 'admin.delete', ok: true });
   return { ok: true, removed: slug };
+});
+
+app.get('/api/v1/admin/tokens', async (req, reply) => {
+  requireAdminApi(req, reply);
+  return { tokens: tokens.list() };
+});
+
+app.post('/api/v1/admin/tokens', async (req, reply) => {
+  requireAdminApi(req, reply);
+  const body = (req.body ?? {}) as { name?: unknown };
+  const name = String(body.name ?? '').trim();
+  if (!name) throw new HttpError(400, 'нужно имя токена');
+  const created = tokens.create(name);
+  log.add({
+    kind: 'value',
+    page: 'admin',
+    name: 'admin.token.create',
+    ok: true,
+    note: created.record.name,
+  });
+  return reply.code(201).send({ token: created.token, record: created.record });
+});
+
+app.delete('/api/v1/admin/tokens/:id', async (req, reply) => {
+  requireAdminApi(req, reply);
+  const id = (req.params as { id: string }).id;
+  if (!tokens.revoke(id)) throw new HttpError(404, 'такого токена нет');
+  log.add({ kind: 'value', page: 'admin', name: 'admin.token.revoke', ok: true, note: id });
+  return { ok: true };
 });
 
 app.get('/api/v1/log', async (req) => {

@@ -63,8 +63,75 @@ async function main() {
   const loginHtml = await loginPage.text();
   check('форма входа отдаётся', loginPage.ok && loginHtml.includes('name="password"'));
 
-  const adminOpen = await fetch(`${BASE}/admin`, { headers: { authorization: adminAuth } });
-  check('админка открывается с паролем', adminOpen.ok, `код ${adminOpen.status}`);
+  const login = await fetch(`${BASE}/admin/login`, {
+    method: 'POST',
+    redirect: 'manual',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: `user=${encodeURIComponent(ADMIN_USER)}&password=${encodeURIComponent(ADMIN_PASSWORD)}&next=%2Fadmin`,
+  });
+  const session = String(login.headers.get('set-cookie') || '').split(';')[0];
+  check(
+    'вход по форме выдаёт сессию',
+    login.status === 303 && session.startsWith('ps_admin='),
+    `код ${login.status}`,
+  );
+
+  const adminOpen = await fetch(`${BASE}/admin`, { headers: { cookie: session } });
+  check('админка открывается с сессией', adminOpen.ok, `код ${adminOpen.status}`);
+
+  const adminBasic = await fetch(`${BASE}/admin`, {
+    headers: { authorization: adminAuth },
+    redirect: 'manual',
+  });
+  check(
+    'страницы админки не пускают по учётным данным Basic',
+    adminBasic.status === 303,
+    `код ${adminBasic.status}`,
+  );
+
+  const tokenCreated = await fetch(`${BASE}/api/v1/admin/tokens`, {
+    method: 'POST',
+    headers: { cookie: session, 'content-type': 'application/json' },
+    body: JSON.stringify({ name: 'smoke' }),
+  });
+  const tokenBody = await tokenCreated.json().catch(() => ({}));
+  const apiToken = typeof tokenBody.token === 'string' ? tokenBody.token : '';
+  check('токен создаётся', tokenCreated.status === 201 && apiToken.startsWith('ps_'));
+
+  const apiWithToken = await fetch(`${BASE}/api/v1/admin/forms`, {
+    headers: { authorization: `Bearer ${apiToken}` },
+  });
+  check('API принимает токен', apiWithToken.ok, `код ${apiWithToken.status}`);
+
+  const pageWithToken = await fetch(`${BASE}/admin`, {
+    headers: { authorization: `Bearer ${apiToken}` },
+    redirect: 'manual',
+  });
+  check('страницы админки не пускают по токену', pageWithToken.status === 303);
+
+  const revoked = await fetch(`${BASE}/api/v1/admin/tokens/${tokenBody.record?.id}`, {
+    method: 'DELETE',
+    headers: { cookie: session },
+  });
+  check('токен отзывается', revoked.ok, `код ${revoked.status}`);
+
+  const afterRevoke = await fetch(`${BASE}/api/v1/admin/forms`, {
+    headers: { authorization: `Bearer ${apiToken}` },
+  });
+  check('отозванный токен не работает', afterRevoke.status === 401, `код ${afterRevoke.status}`);
+
+  const logout = await fetch(`${BASE}/admin/logout`, {
+    headers: { cookie: session },
+    redirect: 'manual',
+  });
+  check(
+    'выход очищает сессию',
+    logout.status === 303 && String(logout.headers.get('set-cookie') || '').includes('ps_admin=;'),
+    `код ${logout.status}`,
+  );
+
+  const afterLogout = await fetch(`${BASE}/admin`, { headers: { cookie: session }, redirect: 'manual' });
+  check('после выхода сессия не работает', afterLogout.status === 303, `код ${afterLogout.status}`);
 
   const adminApiClosed = await fetch(`${BASE}/api/v1/admin/forms`);
   check(

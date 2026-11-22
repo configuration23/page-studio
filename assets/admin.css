@@ -239,6 +239,34 @@ main {
 .guide.v { width: 1px; top: 0; bottom: 0; }
 .guide.h { height: 1px; left: 0; right: 0; }
 
+.token-fresh {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  margin-bottom: 12px;
+  padding: 10px;
+  border: 1px solid #33415a;
+  border-radius: 10px;
+  background: #131a28;
+}
+.token-fresh label { flex: 1; margin: 0; }
+.token-fresh input { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+
+.token-list { display: grid; gap: 8px; margin-bottom: 14px; max-height: 260px; overflow: auto; }
+.token-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel2);
+  font-size: 13px;
+}
+.token-row .name { flex: 1; font-weight: 600; }
+.token-row .meta { color: var(--muted); font-size: 11px; text-align: right; line-height: 1.4; }
+.token-row.empty { color: var(--muted); justify-content: center; }
+
 .methods { margin: 10px 14px 16px; border-top: 1px solid var(--line); padding-top: 10px; }
 .methods .m {
   display: flex;

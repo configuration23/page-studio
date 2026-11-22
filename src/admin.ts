@@ -105,6 +105,7 @@ export function renderAdmin(): string {
       <label><input type="checkbox" id="snap-canvas" checked> края и центр канваса</label>
       <label><input type="checkbox" id="snap-resize" checked> изменение размера</label>
     </div>
+    <button class="btn" id="tokens-open" style="margin: 0 10px 14px; width: calc(100% - 20px)">API-токены</button>
   </aside>
   <section id="stage">
     <div id="canvas"></div>
@@ -135,6 +136,22 @@ export function renderAdmin(): string {
       <button class="btn danger" id="delete-page" style="margin-right:auto">Удалить страницу</button>
       <button class="btn" id="page-cancel">Отмена</button>
       <button class="btn primary" id="page-apply">Применить</button>
+    </div>
+  </div>
+</div>
+<div class="modal" id="tokens-modal" hidden>
+  <div class="modal-box" style="width: 540px">
+    <h3>Токены API</h3>
+    <p class="modal-hint">Токеном ходят скрипты и автоматизация: <code>Authorization: Bearer &lt;токен&gt;</code>. Сам токен показывается один раз — сохрани его.</p>
+    <div id="token-fresh" class="token-fresh" hidden>
+      <label>Новый токен<input id="token-value" readonly></label>
+      <button class="btn" id="token-copy">копировать</button>
+    </div>
+    <div id="token-list" class="token-list"></div>
+    <div class="modal-actions">
+      <input id="token-name" placeholder="имя, например n8n-backup" style="flex: 1; margin-right: 8px">
+      <button class="btn primary" id="token-create">Создать</button>
+      <button class="btn" id="token-close">Закрыть</button>
     </div>
   </div>
 </div>

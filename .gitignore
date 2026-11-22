@@ -8,6 +8,9 @@ data/logs/
 data/generations/*
 !data/generations/.gitkeep
 
+# Хеши API-токенов — секрет, не в git.
+data/api-tokens.json
+
 # Черновики живут до публикации и на диск публикации не попадают.
 data/forms/*.draft.yaml
 

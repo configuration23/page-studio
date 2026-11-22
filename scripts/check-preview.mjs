@@ -4,9 +4,15 @@ const SLUG = process.env.PREVIEW_PAGE ?? 'contact';
 const ADMIN_USER = process.env.ADMIN_USER ?? 'admin';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? 'admin-dev';
 
-const auth = {
-  authorization: `Basic ${Buffer.from(`${ADMIN_USER}:${ADMIN_PASSWORD}`).toString('base64')}`,
-};
+// страницы админки открываются только по сессии, поэтому входим формой
+const login = await fetch(BASE + '/admin/login', {
+  method: 'POST',
+  redirect: 'manual',
+  headers: { 'content-type': 'application/x-www-form-urlencoded' },
+  body: `user=${encodeURIComponent(ADMIN_USER)}&password=${encodeURIComponent(ADMIN_PASSWORD)}`,
+});
+const session = String(login.headers.get('set-cookie') || '').split(';')[0];
+const auth = { cookie: session };
 
 const get = (path) => fetch(BASE + path, { headers: auth }).then((res) => res.json());
 const send = (path, method, body) =>
@@ -16,7 +22,9 @@ const send = (path, method, body) =>
     ...(body ? { body: JSON.stringify(body) } : {}),
   }).then(async (res) => ({ status: res.status, body: await res.json() }));
 const html = (path, withAuth) =>
-  fetch(BASE + path, withAuth ? { headers: auth } : undefined).then((res) => res.text());
+  fetch(BASE + path, withAuth ? { headers: { cookie: session } } : undefined).then((res) =>
+    res.text(),
+  );
 
 const { form } = await get(`/api/v1/admin/forms/${SLUG}`);
 const trace = form.elements.find((el) => el.id === 'trace');
