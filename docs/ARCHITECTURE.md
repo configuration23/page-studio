@@ -130,6 +130,7 @@ n8n: http://192.168.1.126:5678/webhook/gen-push
 data/forms/<slug>.yaml        опубликованные формы
 data/forms/<slug>.draft.yaml  черновик (есть, пока не опубликован)
 data/targets.yaml             адреса целей событий (в git не хранится)
+data/settings.yaml            страница по умолчанию (в git не хранится)
 data/state/<slug>.<sid>.json  значения сессии
 data/generations/             байты картинок + index.jsonl
 data/logs/                    журнал вызовов (ротация)
