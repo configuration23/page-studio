@@ -225,7 +225,7 @@
     showGuideY(null);
   }
 
-  var state = { slug: null, form: null, selected: null, dirty: false, dragging: false, hasDraft: false, targets: [] };
+  var state = { slug: null, form: null, selected: null, dirty: false, dragging: false, hasDraft: false, targets: [], defaultPage: '' };
   var history = [];
   var HISTORY_LIMIT = 20;
   var armSnapshot = true;
@@ -854,6 +854,7 @@
     $('#page-lead').value = state.form.lead || '';
     $('#page-width').value = state.form.canvas.width;
     $('#page-height').value = state.form.canvas.height || '';
+    $('#page-default').checked = state.defaultPage === state.slug;
     pageModal.hidden = false;
     $('#page-title').focus();
   });
@@ -893,6 +894,33 @@
       if (el.w > state.form.canvas.width) el.w = state.form.canvas.width;
       if (el.x + el.w > state.form.canvas.width) el.x = Math.max(0, state.form.canvas.width - el.w);
     });
+
+    var wantDefault = $('#page-default').checked;
+    if (wantDefault && state.defaultPage !== state.slug) {
+      api('/api/v1/admin/settings', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ defaultPage: state.slug })
+      })
+        .then(function () {
+          state.defaultPage = state.slug;
+        })
+        .catch(function (err) {
+          setStatus('не удалось сделать страницей по умолчанию: ' + err.message, 'err');
+        });
+    } else if (!wantDefault && state.defaultPage === state.slug) {
+      api('/api/v1/admin/settings', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ defaultPage: '' })
+      })
+        .then(function () {
+          state.defaultPage = '';
+        })
+        .catch(function (err) {
+          setStatus('не удалось снять страницу по умолчанию: ' + err.message, 'err');
+        });
+    }
 
     pageModal.hidden = true;
     renderAll();
@@ -1381,6 +1409,13 @@
   });
 
   renderPalette();
+  api('/api/v1/admin/settings')
+    .then(function (data) {
+      state.defaultPage = data.defaultPage || '';
+    })
+    .catch(function () {
+      // без настроек живём: галочка просто окажется снятой
+    });
   loadTargets()
     .then(loadForms)
     .then(function () {

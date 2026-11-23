@@ -9,6 +9,7 @@ import { loadConfig } from './config.js';
 import { draftFile, loadForms, publishedFile } from './forms.js';
 import { pushEvent } from './push.js';
 import { TargetStore } from './targets.js';
+import { SettingsStore } from './settings.js';
 import { StateStore } from './state.js';
 import { ImageStore } from './store.js';
 import { CallLog } from './log.js';
@@ -29,6 +30,18 @@ const forms = loadForms(config.formsDir);
 const drafts = loadForms(config.formsDir, { drafts: true });
 /** Именованные адреса, куда уходят события. */
 const targets = new TargetStore(config.dataDir);
+
+/** Настройки портала: какая страница открывается на входе. */
+const settings = new SettingsStore(config.dataDir, process.env.DEFAULT_PAGE?.trim() || undefined);
+
+function indexItems(): Array<{ slug: string; title: string; lead?: string; elements: number }> {
+  return [...forms.values()].map((form) => ({
+    slug: form.slug,
+    title: form.title,
+    lead: form.lead,
+    elements: form.elements.length,
+  }));
+}
 const state = new StateStore(config.dataDir);
 const images = new ImageStore(config.dataDir);
 const log = new CallLog(200, join(config.logsDir, 'calls.jsonl'));
@@ -287,14 +300,15 @@ app.setErrorHandler((rawError: unknown, _req, reply) => {
 });
 
 app.get('/', async (_req, reply) => {
-  const items = [...forms.values()].map((form) => ({
-    slug: form.slug,
-    title: form.title,
-    lead: form.lead,
-    elements: form.elements.length,
-  }));
-  return reply.type('text/html; charset=utf-8').send(renderIndex(items));
+  const { defaultPage } = settings.get();
+  if (defaultPage && forms.has(defaultPage)) return reply.redirect(`/p/${defaultPage}`, 302);
+  return reply.type('text/html; charset=utf-8').send(renderIndex(indexItems()));
 });
+
+/** Список страниц — отдельный адрес, чтобы он не пропадал при странице по умолчанию. */
+app.get('/pages', async (_req, reply) =>
+  reply.type('text/html; charset=utf-8').send(renderIndex(indexItems())),
+);
 
 app.get('/health', async () => ({
   ok: true,
@@ -312,9 +326,14 @@ app.get('/p/:slug', async (req, reply) => {
   const values = state.values(form, sid);
   const footer =
     query.debug === '1' ? `${form.elements.length} элементов · сессия ${sid}` : '';
+  const isDraft = query.draft === '1';
+  const nav = [
+    ...(isDraft ? [{ href: '/admin', label: '← В админку' }] : []),
+    { href: '/pages', label: 'К списку страниц' },
+  ];
   return reply
     .type('text/html; charset=utf-8')
-    .send(renderPage(form, values, galleriesOf(form), footer));
+    .send(renderPage(form, values, galleriesOf(form), { footer, nav, badge: isDraft ? 'черновик' : '' }));
 });
 
 app.get('/media/:id', async (req, reply) => {
@@ -782,7 +801,17 @@ app.delete('/api/v1/admin/forms/:slug', async (req, reply) => {
 app.get('/api/v1/admin/settings', async (req, reply) => {
   requireAdminApi(req, reply);
   // токен записи нужен бэкенду; показываем его только вошедшему админу
-  return { portalToken: config.token };
+  return { portalToken: config.token, defaultPage: settings.get().defaultPage ?? '' };
+});
+
+app.put('/api/v1/admin/settings', async (req, reply) => {
+  requireAdminApi(req, reply);
+  const body = (req.body ?? {}) as { defaultPage?: unknown };
+  const slug = String(body.defaultPage ?? '').trim();
+  if (slug && !forms.has(slug)) throw new HttpError(400, `страницы «${slug}» нет`);
+  settings.setDefaultPage(slug);
+  log.add({ kind: 'value', page: 'admin', name: 'admin.settings', ok: true, note: slug || 'список' });
+  return { ok: true, defaultPage: settings.get().defaultPage ?? '' };
 });
 
 app.get('/api/v1/admin/tokens', async (req, reply) => {

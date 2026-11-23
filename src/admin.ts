@@ -133,6 +133,8 @@ export function renderAdmin(): string {
     <label>Ширина, px<input id="page-width" type="number" min="320" max="1920" step="10"></label>
     <label>Высота, px<input id="page-height" type="number" min="200" max="8000" step="10" placeholder="авто"></label>
     <p class="modal-hint">Пустая высота — страница по содержимому. Заданная — фиксированная; элемент ниже границы подсвечивается на канвасе.</p>
+    <label class="check-row"><input type="checkbox" id="page-default"> открывать при входе на портал</label>
+    <p class="modal-hint">Тогда корень портала ведёт сразу на эту страницу. Список страниц остаётся по адресу <code>/pages</code>.</p>
     <div class="modal-actions">
       <button class="btn danger" id="delete-page" style="margin-right:auto">Удалить страницу</button>
       <button class="btn" id="page-cancel">Отмена</button>

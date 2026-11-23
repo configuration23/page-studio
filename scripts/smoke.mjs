@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 /**
- * Сквозная проверка контракта: страница, методы, событие, доставка картинки,
- * галерея. Требует запущенных портала и демо-драйвера.
+ * Сквозная проверка контракта: временная страница, методы, событие, доставка
+ * картинки, галерея. Требует запущенных портала и демо-драйвера.
+ *
+ * Страница создаётся на время проверки и удаляется в конце, поэтому чужие
+ * страницы не трогаются, а демо-страница для проверки не нужна.
  *
  *   node scripts/smoke.mjs
  */
@@ -11,8 +14,8 @@ const BASE = process.env.BASE ?? 'http://127.0.0.1:3000';
 const TOKEN = process.env.PORTAL_TOKEN ?? 'dev-token-local';
 const ADMIN_USER = process.env.ADMIN_USER ?? 'admin';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? 'admin-dev';
-const PAGE = process.env.SMOKE_PAGE ?? 'generation';
 const WAIT_MS = Number(process.env.SMOKE_WAIT_MS ?? 25000);
+const PAGE = `smoke-${randomBytes(3).toString('hex')}`;
 
 const adminAuth = `Basic ${Buffer.from(`${ADMIN_USER}:${ADMIN_PASSWORD}`).toString('base64')}`;
 
@@ -37,26 +40,24 @@ async function api(path, init) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+const TEST_FORM = {
+  slug: PAGE,
+  title: 'Проверка контракта',
+  canvas: { width: 960, height: 600 },
+  elements: [
+    { id: 'prompt', kind: 'memo', x: 40, y: 40, w: 520, h: 120, label: 'Промпт', props: { placeholder: 'что нарисовать' } },
+    { id: 'push', kind: 'button', x: 600, y: 40, w: 200, h: 48, label: 'Нарисовать', target: 'demo', props: { primary: true } },
+    { id: 'status', kind: 'status', x: 600, y: 110, w: 260, h: 40 },
+    { id: 'image', kind: 'image', x: 40, y: 190, w: 520, h: 360, label: 'Результат' },
+    { id: 'gallery', kind: 'gallery', x: 600, y: 190, w: 300, h: 360, label: 'История' },
+  ],
+};
+
 async function main() {
   const health = await api('/health');
   check('health отвечает', health.res.ok && health.body.ok === true, JSON.stringify(health.body));
 
-  const page = await api(`/p/${PAGE}`);
-  check('страница отдаётся', page.res.ok && String(page.body).includes(`data-page="${PAGE}"`));
-
-  const manifest = await api(`/api/v1/forms/${PAGE}/manifest`);
-  const methods = (manifest.body.methods ?? []).map((m) => m.name);
-  check('манифест: метод события', methods.includes(`${PAGE}.on_click_push`));
-  check('манифест: метод записи картинки', methods.includes(`${PAGE}.post_image`));
-  const pushElement = (manifest.body.elements ?? []).find((el) => el.id === 'push');
-  check('манифест: у кнопки есть цель события', Boolean(pushElement?.target), String(pushElement?.target));
-  check(
-    'манифест: адреса целей не отдаются',
-    !JSON.stringify(manifest.body).includes('http'),
-  );
-
-  const sid = randomBytes(6).toString('hex');
-
+  // --- вход в админку --------------------------------------------------------
   const adminClosed = await fetch(`${BASE}/admin`, { redirect: 'manual' });
   check(
     'админка без входа уводит на форму',
@@ -75,11 +76,7 @@ async function main() {
     body: `user=${encodeURIComponent(ADMIN_USER)}&password=${encodeURIComponent(ADMIN_PASSWORD)}&next=%2Fadmin`,
   });
   const session = String(login.headers.get('set-cookie') || '').split(';')[0];
-  check(
-    'вход по форме выдаёт сессию',
-    login.status === 303 && session.startsWith('ps_admin='),
-    `код ${login.status}`,
-  );
+  check('вход по форме выдаёт сессию', login.status === 303 && session.startsWith('ps_admin='), `код ${login.status}`);
 
   const adminOpen = await fetch(`${BASE}/admin`, { headers: { cookie: session } });
   check('админка открывается с сессией', adminOpen.ok, `код ${adminOpen.status}`);
@@ -88,12 +85,9 @@ async function main() {
     headers: { authorization: adminAuth },
     redirect: 'manual',
   });
-  check(
-    'страницы админки не пускают по учётным данным Basic',
-    adminBasic.status === 303,
-    `код ${adminBasic.status}`,
-  );
+  check('страницы админки не пускают по учётным данным Basic', adminBasic.status === 303, `код ${adminBasic.status}`);
 
+  // --- токены ----------------------------------------------------------------
   const tokenCreated = await fetch(`${BASE}/api/v1/admin/tokens`, {
     method: 'POST',
     headers: { cookie: session, 'content-type': 'application/json' },
@@ -125,6 +119,112 @@ async function main() {
   });
   check('отозванный токен не работает', afterRevoke.status === 401, `код ${afterRevoke.status}`);
 
+  // --- временная страница ----------------------------------------------------
+  const created = await fetch(`${BASE}/api/v1/admin/forms`, {
+    method: 'POST',
+    headers: { cookie: session, 'content-type': 'application/json' },
+    body: JSON.stringify({ slug: PAGE, title: TEST_FORM.title }),
+  });
+  check('временная страница создаётся', created.status === 200, `код ${created.status}`);
+
+  const saved = await fetch(`${BASE}/api/v1/admin/forms/${PAGE}`, {
+    method: 'PUT',
+    headers: { cookie: session, 'content-type': 'application/json' },
+    body: JSON.stringify({ form: TEST_FORM }),
+  });
+  check('черновик временной страницы сохраняется', saved.ok, `код ${saved.status}`);
+
+  const published = await fetch(`${BASE}/api/v1/admin/forms/${PAGE}/publish`, {
+    method: 'POST',
+    headers: { cookie: session },
+  });
+  check('временная страница публикуется', published.ok, `код ${published.status}`);
+
+  try {
+    // --- публичная часть -----------------------------------------------------
+    const page = await api(`/p/${PAGE}`);
+    const pageHtml = String(page.body);
+    check('страница отдаётся', page.res.ok && pageHtml.includes(`data-page="${PAGE}"`));
+    check(
+      'на странице есть возврат к списку',
+      pageHtml.includes('href="/pages"') && pageHtml.includes('К списку страниц'),
+    );
+
+    const index = await api('/pages');
+    check('список страниц доступен', index.res.ok && String(index.body).includes(`/p/${PAGE}`));
+
+    const manifest = await api(`/api/v1/forms/${PAGE}/manifest`);
+    const methods = (manifest.body.methods ?? []).map((m) => m.name);
+    check('манифест: метод события', methods.includes(`${PAGE}.on_click_push`));
+    check('манифест: метод записи картинки', methods.includes(`${PAGE}.post_image`));
+    const pushElement = (manifest.body.elements ?? []).find((el) => el.id === 'push');
+    check('манифест: у кнопки есть цель события', Boolean(pushElement?.target), String(pushElement?.target));
+    check('манифест: адреса целей не отдаются', !JSON.stringify(manifest.body).includes('http'));
+
+    const draftClosed = await fetch(`${BASE}/p/${PAGE}?draft=1`, { redirect: 'manual' });
+    check('предпросмотр черновика закрыт', draftClosed.status === 303);
+
+    // --- значения и событие --------------------------------------------------
+    const sid = randomBytes(6).toString('hex');
+
+    const denied = await api(`/api/v1/forms/${PAGE}/values/status?sid=${sid}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ value: { state: 'running' } }),
+    });
+    check('без токена запись запрещена', denied.res.status === 401, `код ${denied.res.status}`);
+
+    const prompt = 'кот-астронавт, акварель, мягкий свет';
+    const setPrompt = await api(`/api/v1/forms/${PAGE}/values/prompt?sid=${sid}`, {
+      method: 'POST',
+      headers: json,
+      body: JSON.stringify({ value: prompt }),
+    });
+    check('промпт записан', setPrompt.res.ok && setPrompt.body.value === prompt);
+
+    const event = await api(`/api/v1/forms/${PAGE}/events/push?sid=${sid}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    check('событие принято', event.res.status === 202 && event.body.pushed === true, JSON.stringify(event.body));
+
+    const started = Date.now();
+    let status = null;
+    while (Date.now() - started < WAIT_MS) {
+      const statusRes = await api(`/api/v1/forms/${PAGE}/values/status?sid=${sid}`, { headers: auth });
+      status = statusRes.body.value;
+      if (status?.state === 'done' || status?.state === 'failed') break;
+      await sleep(500);
+    }
+    check('статус дошёл до done', status?.state === 'done', `state=${status?.state} text=${status?.text}`);
+
+    const imageRes = await api(`/api/v1/forms/${PAGE}/values/image?sid=${sid}`, { headers: auth });
+    const image = imageRes.body.value;
+    check('картинка записана', Boolean(image?.imageId), JSON.stringify(image));
+
+    if (image?.imageId) {
+      const media = await fetch(`${BASE}/media/${image.imageId}`);
+      const type = media.headers.get('content-type') ?? '';
+      const bytes = (await media.arrayBuffer()).byteLength;
+      check('картинка отдаётся', media.ok && type.startsWith('image/') && bytes > 1000, `${type}, ${bytes} байт`);
+    }
+
+    const gallery = await api(`/api/v1/forms/${PAGE}/values/gallery?sid=${sid}`, { headers: auth });
+    check('галерея видит картинку', Array.isArray(gallery.body.value) && gallery.body.value.length > 0);
+
+    const log = await api('/api/v1/log', { headers: auth });
+    check('журнал пишет вызовы', Array.isArray(log.body.entries) && log.body.entries.length > 0);
+  } finally {
+    // за собой убираем всегда, даже если проверка упала
+    const removed = await fetch(`${BASE}/api/v1/admin/forms/${PAGE}?confirm=${PAGE}`, {
+      method: 'DELETE',
+      headers: { cookie: session },
+    });
+    check('временная страница удаляется', removed.ok, `код ${removed.status}`);
+  }
+
+  // --- выход -----------------------------------------------------------------
   const logout = await fetch(`${BASE}/admin/logout`, {
     headers: { cookie: session },
     redirect: 'manual',
@@ -143,59 +243,6 @@ async function main() {
     'API админки без входа закрыт без диалога браузера',
     adminApiClosed.status === 401 && !adminApiClosed.headers.get('www-authenticate'),
   );
-
-  const draftClosed = await fetch(`${BASE}/p/${PAGE}?draft=1`, { redirect: 'manual' });
-  check('предпросмотр черновика закрыт', draftClosed.status === 303);
-
-  const denied = await api(`/api/v1/forms/${PAGE}/values/status?sid=${sid}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ value: { state: 'running' } }),
-  });
-  check('без токена запись запрещена', denied.res.status === 401, `код ${denied.res.status}`);
-
-  const prompt = 'кот-астронавт, акварель, мягкий свет';
-  const setPrompt = await api(`/api/v1/forms/${PAGE}/values/prompt?sid=${sid}`, {
-    method: 'POST',
-    headers: json,
-    body: JSON.stringify({ value: prompt }),
-  });
-  check('промпт записан', setPrompt.res.ok && setPrompt.body.value === prompt);
-
-  const event = await api(`/api/v1/forms/${PAGE}/events/push?sid=${sid}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({}),
-  });
-  check('событие принято', event.res.status === 202 && event.body.pushed === true, JSON.stringify(event.body));
-
-  const started = Date.now();
-  let image = null;
-  let status = null;
-  while (Date.now() - started < WAIT_MS) {
-    const statusRes = await api(`/api/v1/forms/${PAGE}/values/status?sid=${sid}`, { headers: auth });
-    status = statusRes.body.value;
-    if (status?.state === 'done' || status?.state === 'failed') break;
-    await sleep(500);
-  }
-  check('статус дошёл до done', status?.state === 'done', `state=${status?.state} text=${status?.text}`);
-
-  const imageRes = await api(`/api/v1/forms/${PAGE}/values/image?sid=${sid}`, { headers: auth });
-  image = imageRes.body.value;
-  check('картинка записана', Boolean(image?.imageId), JSON.stringify(image));
-
-  if (image?.imageId) {
-    const media = await fetch(`${BASE}/media/${image.imageId}`);
-    const type = media.headers.get('content-type') ?? '';
-    const bytes = (await media.arrayBuffer()).byteLength;
-    check('картинка отдаётся', media.ok && type.startsWith('image/') && bytes > 1000, `${type}, ${bytes} байт`);
-  }
-
-  const gallery = await api(`/api/v1/forms/${PAGE}/values/gallery?sid=${sid}`, { headers: auth });
-  check('галерея видит картинку', Array.isArray(gallery.body.value) && gallery.body.value.length > 0);
-
-  const log = await api('/api/v1/log', { headers: auth });
-  check('журнал пишет вызовы', Array.isArray(log.body.entries) && log.body.entries.length > 0);
 
   console.log(`\n${failed === 0 ? 'всё зелёное' : `провалов: ${failed}`} · ${results.length} проверок`);
   process.exit(failed === 0 ? 0 : 1);

@@ -6,6 +6,7 @@
   --ink: #161a20;
   --ink-muted: #5b6472;
   --edge: #d6dbe4;
+  --line: #232c3b;
   --accent: #4f8cff;
   --ok: #2ea043;
   --warn: #d29922;
@@ -23,6 +24,29 @@ body {
 }
 
 .wrap { max-width: 1040px; margin: 0 auto; padding: 32px 24px 64px; }
+.topbar {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 18px;
+  font-size: 13px;
+}
+.topbar .navlink {
+  color: var(--muted);
+  text-decoration: none;
+  border: 1px solid var(--line, #232c3b);
+  border-radius: 8px;
+  padding: 6px 11px;
+  transition: color 0.12s, border-color 0.12s;
+}
+.topbar .navlink:hover { color: var(--text); border-color: #4f8cff; }
+.topbar .badge-note {
+  margin-left: auto;
+  color: #f0c05a;
+  font: 600 11px/1 ui-monospace, Consolas, monospace;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
 .head h1 { margin: 10px 0 6px; font-size: 26px; letter-spacing: -0.01em; }
 .head p { margin: 0; color: var(--muted); max-width: 720px; }
 .tag {

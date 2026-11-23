@@ -130,11 +130,18 @@ function renderElement(el: Element, value: unknown, items: GalleryItem[]): strin
   return `<div class="el k-${el.kind} ${sizeClass(el)}" data-id="${escapeHtml(el.id)}" data-kind="${el.kind}"${eventAttr(el)} style="${style}">${renderInner(el, value, items)}</div>`;
 }
 
+export type PageOptions = {
+  footer?: string;
+  /** Ссылки в верхней панели: возврат к списку, выход в админку. */
+  nav?: Array<{ href: string; label: string }>;
+  badge?: string;
+};
+
 export function renderPage(
   form: Form,
   values: Values,
   galleries: Record<string, GalleryItem[]>,
-  footer = '',
+  options: PageOptions = {},
 ): string {
   const width = form.canvas.width;
   const bottom = Math.max(...form.elements.map((el) => el.y + el.h), 320);
@@ -143,6 +150,14 @@ export function renderPage(
   const elements = form.elements
     .map((el) => renderElement(el, values[el.id], galleries[el.id] ?? []))
     .join('\n      ');
+
+  const nav = (options.nav ?? [])
+    .map((item) => `<a class="navlink" href="${escapeHtml(item.href)}">${escapeHtml(item.label)}</a>`)
+    .join('');
+  const topbar = nav || options.badge
+    ? `<div class="topbar">${nav}${options.badge ? `<span class="badge-note">${escapeHtml(options.badge)}</span>` : ''}</div>`
+    : '';
+  const footer = options.footer ?? '';
 
   return `<!DOCTYPE html>
 <html lang="ru">
@@ -157,6 +172,7 @@ ${CSS}
 </head>
 <body>
 <div class="wrap" data-page="${escapeHtml(form.slug)}">
+  ${topbar}
   <header class="head">
     <span class="tag">page-studio</span>
     <h1>${escapeHtml(form.title)}</h1>
