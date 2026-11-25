@@ -93,6 +93,9 @@ export function renderAdmin(): string {
   <a class="btn" id="preview" target="_blank" rel="noopener">Предпросмотр</a>
   <a class="btn" id="open" target="_blank" rel="noopener">Открыть</a>
   <span class="spacer"></span>
+  <button class="toplink" id="targets-open">Цели</button>
+  <button class="toplink" id="tokens-open">Токены</button>
+  <a class="toplink" href="/admin/help" target="_blank" rel="noopener">Справка</a>
   <span id="status"></span>
   <a class="btn" href="/admin/logout" title="выйти из админки">Выйти</a>
 </header>
@@ -101,16 +104,6 @@ export function renderAdmin(): string {
     <h3>Палитра</h3>
     <div id="palette"></div>
     <div class="muted">Клик — элемент появляется на канвасе. Имя элемента станет именем метода.</div>
-    <div class="snap-panel">
-      <label><input type="checkbox" id="snap-enabled" checked> <b>Магнит</b></label>
-      <label><input type="checkbox" id="snap-edges" checked> края элементов</label>
-      <label><input type="checkbox" id="snap-centers" checked> центры элементов</label>
-      <label><input type="checkbox" id="snap-canvas" checked> края и центр канваса</label>
-      <label><input type="checkbox" id="snap-resize" checked> изменение размера</label>
-    </div>
-    <button class="btn" id="targets-open" style="margin: 0 10px 8px; width: calc(100% - 20px)">Цели событий</button>
-    <button class="btn" id="tokens-open" style="margin: 0 10px 8px; width: calc(100% - 20px)">API-токены</button>
-    <a class="btn" href="/admin/help" target="_blank" rel="noopener" style="margin: 0 10px 14px; width: calc(100% - 20px); text-align: center">Справка</a>
   </aside>
   <section id="stage">
     <div id="canvas"></div>
@@ -130,26 +123,43 @@ export function renderAdmin(): string {
   </div>
 </div>
 <div class="modal" id="page-modal" hidden>
-  <div class="modal-box">
-    <h3>Страница</h3>
-    <label>Заголовок<input id="page-title" autocomplete="off"></label>
-    <label>Подпись<input id="page-lead" autocomplete="off"></label>
-    <label>Ширина, px<input id="page-width" type="number" min="320" max="1920" step="10"></label>
-    <label>Высота, px<input id="page-height" type="number" min="200" max="8000" step="10" placeholder="авто"></label>
-    <p class="modal-hint">Пустая высота — страница по содержимому. Заданная — фиксированная; элемент ниже границы подсвечивается на канвасе.</p>
-    <label class="check-row"><input type="checkbox" id="page-default"> открывать при входе на портал</label>
-    <p class="modal-hint">Тогда корень портала ведёт сразу на эту страницу. Список страниц остаётся по адресу <code>/pages</code>.</p>
-    <h4 class="modal-section">Портал</h4>
-    <label>Заголовок списка<input id="index-title" autocomplete="off" placeholder="Страницы"></label>
-    <label>Подпись списка<input id="index-lead" autocomplete="off" placeholder="короткое описание портала"></label>
-    <label>Список страниц
-      <select id="page-list-view">
-        <option value="cards">плитка</option>
-        <option value="rows">строки</option>
-        <option value="compact">компактный список</option>
-      </select>
-    </label>
-    <p class="modal-hint">Как показывать <code>/pages</code> всем посетителям. Настройки ниже — общие для портала, не для этой страницы.</p>
+  <div class="modal-box wide">
+    <h3>Настройки</h3>
+    <div class="modal-grid">
+      <section>
+        <h4>Портал</h4>
+        <label>Заголовок списка<input id="index-title" autocomplete="off" placeholder="Страницы"></label>
+        <label>Подпись списка<input id="index-lead" autocomplete="off" placeholder="короткое описание портала"></label>
+        <label>Список страниц
+          <select id="page-list-view">
+            <option value="cards">плитка</option>
+            <option value="rows">строки</option>
+            <option value="compact">компактный список</option>
+          </select>
+        </label>
+        <label class="check-row"><input type="checkbox" id="page-default"> открывать при входе на портал</label>
+        <p class="modal-hint">Заголовок и вид — для адреса <code>/pages</code>. Галочка выше делает эту страницу входной: корень портала ведёт на неё.</p>
+      </section>
+      <section>
+        <h4>Страница</h4>
+        <label>Заголовок<input id="page-title" autocomplete="off"></label>
+        <label>Подпись<input id="page-lead" autocomplete="off"></label>
+        <label>Ширина, px<input id="page-width" type="number" min="320" max="1920" step="10"></label>
+        <label>Высота, px<input id="page-height" type="number" min="200" max="8000" step="10" placeholder="авто"></label>
+        <p class="modal-hint">Пустая высота — по содержимому. Заданная — фиксированная; элемент ниже границы подсвечивается на канвасе.</p>
+      </section>
+      <section>
+        <h4>Редактор</h4>
+        <div class="snap-panel">
+          <label><input type="checkbox" id="snap-enabled" checked> <b>Магнит</b></label>
+          <label><input type="checkbox" id="snap-edges" checked> края элементов</label>
+          <label><input type="checkbox" id="snap-centers" checked> центры элементов</label>
+          <label><input type="checkbox" id="snap-canvas" checked> края и центр канваса</label>
+          <label><input type="checkbox" id="snap-resize" checked> изменение размера</label>
+        </div>
+        <p class="modal-hint">Магнит помогает ставить элементы ровно: при перетаскивании и растягивании края прилипают к выбранным целям. Настройки запоминаются в браузере.</p>
+      </section>
+    </div>
     <div class="modal-actions">
       <button class="btn danger" id="delete-page" style="margin-right:auto">Удалить страницу</button>
       <button class="btn" id="page-cancel">Отмена</button>
