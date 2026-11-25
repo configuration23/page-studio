@@ -1,4 +1,4 @@
-﻿import { createReadStream } from 'node:fs';
+import { createReadStream } from 'node:fs';
 import { readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { parse as parseQuery } from 'node:querystring';
@@ -546,6 +546,11 @@ app.post('/api/v1/forms/:slug/values/:id', async (req, reply) => {
 
   const body = (req.body ?? {}) as { value?: unknown };
   const value = normalizeValue(el, body.value);
+  // состояние сверяется с формой при каждом обращении, но если элемент всё же
+  // не появился — лучше понятная ошибка, чем падение в 500
+  if (!(el.id in state.values(form, sid))) {
+    throw new HttpError(409, `«${el.id}» ещё не в состоянии этой сессии: обновите страницу`);
+  }
   state.set(form, sid, el.id, value);
   log.add({ kind: 'value', page: form.slug, name: `${form.slug}.post_${el.id}`, sid, ok: true });
   return { value };
