@@ -268,6 +268,7 @@
   var saveBtn = $('#save');
   var publishBtn = $('#publish');
   var draftBadge = $('#draft-badge');
+  var dirtyBadge = $('#dirty-badge');
   var openLink = $('#open');
   var previewLink = $('#preview');
   var canvas = $('#canvas');
@@ -300,7 +301,13 @@
 
   function markDirty() {
     state.dirty = true;
+    syncDirty();
     setStatus('есть несохранённые правки');
+  }
+
+  /** Заметная пометка «не сохранено» рядом со статусом. */
+  function syncDirty() {
+    if (dirtyBadge) dirtyBadge.hidden = !state.dirty;
   }
 
   function syncDraft() {
@@ -373,6 +380,7 @@
       state.form = data.form;
       state.selected = data.form.elements.length ? data.form.elements[0].id : null;
       state.dirty = false;
+      syncDirty();
       state.hasDraft = Boolean(data.hasDraft);
       history.length = 0;
       openLink.href = '/p/' + slug;
@@ -830,6 +838,7 @@
       .then(function () {
         state.dirty = false;
         state.hasDraft = true;
+        syncDirty();
         history.length = 0;
         syncDraft();
         syncOption();
@@ -927,6 +936,12 @@
       setStatus('заголовок не может быть пустым', 'err');
       return;
     }
+    var before = JSON.stringify({
+      title: state.form.title,
+      lead: state.form.lead || '',
+      width: state.form.canvas.width,
+      height: state.form.canvas.height || null
+    });
     snapshot();
     state.form.title = title;
     var lead = $('#page-lead').value.trim();
@@ -976,8 +991,20 @@
 
     pageModal.hidden = true;
     renderAll();
-    markDirty();
-    setStatus('настройки страницы применены');
+    syncOption();
+
+    var after = JSON.stringify({
+      title: state.form.title,
+      lead: state.form.lead || '',
+      width: state.form.canvas.width,
+      height: state.form.canvas.height || null
+    });
+    if (before !== after) {
+      markDirty();
+      setStatus('настройки страницы изменены — нажмите «Сохранить»');
+    } else {
+      setStatus('настройки страницы без изменений');
+    }
   });
 
   loadSnapSettings();
