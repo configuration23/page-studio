@@ -1,3 +1,5 @@
+import { helpSummaries } from './help.js';
+
 export function renderLogin(options: { next?: string; error?: string; disabled?: boolean } = {}): string {
   const error = options.error
     ? `<div class="err">${escapeLogin(options.error)}</div>`
@@ -107,7 +109,8 @@ export function renderAdmin(): string {
       <label><input type="checkbox" id="snap-resize" checked> изменение размера</label>
     </div>
     <button class="btn" id="targets-open" style="margin: 0 10px 8px; width: calc(100% - 20px)">Цели событий</button>
-    <button class="btn" id="tokens-open" style="margin: 0 10px 14px; width: calc(100% - 20px)">API-токены</button>
+    <button class="btn" id="tokens-open" style="margin: 0 10px 8px; width: calc(100% - 20px)">API-токены</button>
+    <a class="btn" href="/admin/help" target="_blank" rel="noopener" style="margin: 0 10px 14px; width: calc(100% - 20px); text-align: center">Справка</a>
   </aside>
   <section id="stage">
     <div id="canvas"></div>
@@ -188,6 +191,7 @@ export function renderAdmin(): string {
     </div>
   </div>
 </div>
+<script>window.__HELP = ${JSON.stringify(helpSummaries()).replace(/</g, '\\u003c')};</script>
 <script src="/admin.js"></script>
 </body>
 </html>`;

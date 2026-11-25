@@ -1,4 +1,5 @@
-import { EVENTS_OF, hasValue, methodsOf, type Element, type Form, type Kind } from './model.js';
+import { EVENTS_OF, KINDS, VALUE_KINDS, type Kind } from './model.js';
+import { renderMarkdown } from './render.js';
 
 type Entry = {
   name: string;
@@ -9,7 +10,7 @@ type Entry = {
 
 /**
  * Справка по видам элементов — единственный источник.
- * Методы и примеры собираются из модели, поэтому не расходятся с кодом.
+ * Общая страница собирается из этих записей; у элемента — короткий итог и ссылка.
  */
 const HELP: Record<Kind, Entry> = {
   label: {
@@ -17,18 +18,18 @@ const HELP: Record<Kind, Entry> = {
     what: 'Блок текста: заголовок, пояснение, длинная инструкция. Длинный текст прокручивается внутри блока. Пользователь его не редактирует — для ввода есть «Абзац».',
     props: [
       ['данные', 'многострочный текст, переносы сохраняются, до 20 000 символов'],
-      ['обмен', 'включён — появляются методы и текст попадает в снимок формы'],
-      ['формат', 'обычный текст или маркдаун (заголовки, жирный, списки, код, ссылки)'],
+      ['обмен', 'включён — появляются методы, и текст попадает в снимок формы'],
+      ['формат', 'обычный текст или маркдаун: заголовки, жирный, списки, код, ссылки'],
       ['выравн.', 'слева, по центру или справа'],
     ],
     pitfalls: [
-      ['401', 'для записи значений нужен PORTAL_TOKEN, не токен админского API'],
-      ['400', 'у текста не включён обмен или строка длиннее 20 000 символов'],
+      ['401', 'для записи значений нужен PORTAL_TOKEN, а не токен админского API'],
+      ['400', 'у текста не включён «обмен» или строка длиннее 20 000 символов'],
     ],
   },
   edit: {
     name: 'Строка',
-    what: 'Однострочное поле ввода. Пользователь вводит текст, значение хранится на сервере по сессии.',
+    what: 'Однострочное поле ввода. Пользователь вводит текст, значение хранится на сервере по сессии и видно бэкенду.',
     props: [
       ['подсказка', 'серый текст внутри поля'],
       ['лимит', 'сколько символов разрешено'],
@@ -38,7 +39,7 @@ const HELP: Record<Kind, Entry> = {
   },
   memo: {
     name: 'Абзац',
-    what: 'Многострочное поле ввода: промпты, сообщения, описания. Всё как у строки, но с переносами.',
+    what: 'Многострочное поле ввода: промпты, сообщения, описания. Всё как у строки, но с переносами строк.',
     props: [
       ['подсказка', 'серый текст внутри поля'],
       ['лимит', 'сколько символов разрешено'],
@@ -62,11 +63,11 @@ const HELP: Record<Kind, Entry> = {
   },
   button: {
     name: 'Кнопка',
-    what: 'Ничего не хранит. По клику отправляет событие вместе со снимком всей формы. Результат появляется позже — через запись других элементов.',
+    what: 'Ничего не хранит. По клику отправляет событие вместе со снимком всей формы. Результат появляется позже — записью других элементов.',
     props: [['подпись', 'текст на кнопке']],
     pitfalls: [
       ['событие не ушло', 'у кнопки не выбрана цель («куда уходит» в инспекторе)'],
-      ['404', 'цель есть, но вебхук в бэкенде не зарегистрирован'],
+      ['404', 'цель есть, но вебхук в бэкенде не зарегистрирован или путь другой'],
     ],
   },
   image: {
@@ -75,7 +76,7 @@ const HELP: Record<Kind, Entry> = {
     props: [
       ['вписывать', 'включено — без обрезки, выключено — заполняет блок'],
       ['по клику', 'открывать поверх страницы в затемнённом слое'],
-      ['в новом окне', 'открывать отдельным окном без интерфейса'],
+      ['в новом окне', 'открывать отдельным окном без интерфейса портала'],
     ],
     pitfalls: [
       ['415', 'не тот Content-Type: нужен image/png, image/jpeg или другой image/*'],
@@ -84,7 +85,7 @@ const HELP: Record<Kind, Entry> = {
   },
   gallery: {
     name: 'Галерея',
-    what: 'Лента последних картинок страницы. Отдельно писать не нужно: как только бэкенд кладёт картинку в image, она появляется здесь.',
+    what: 'Лента последних картинок страницы. Отдельно писать не нужно: как только бэкенд кладёт картинку в элемент «Картинка», она появляется здесь.',
     props: [
       ['штук', 'сколько последних показывать'],
       ['пусто', 'что показать, пока картинок нет'],
@@ -93,10 +94,8 @@ const HELP: Record<Kind, Entry> = {
   list: {
     name: 'Список',
     what: 'Строки от бэкенда: шаги обработки, статусы, названия. Это текст, а не картинки.',
-    props: [
-      ['пусто', 'что показать, пока данных нет'],
-    ],
-    pitfalls: [['400', 'ожидается массив строк, до 100 штук по 300 символов']],
+    props: [['пусто', 'что показать, пока данных нет']],
+    pitfalls: [['400', 'ожидается массив строк: до 100 штук по 300 символов']],
   },
   status: {
     name: 'Статус',
@@ -107,8 +106,8 @@ const HELP: Record<Kind, Entry> = {
     name: 'Открытие',
     what: 'Невидимый на странице триггер: как только посетитель открыл страницу, портал отправляет событие со снимком формы. Нужен для дашбордов.',
     pitfalls: [
-      ['событие не ушло', 'не выбрана цель («куда уходит»)'],
-      ['событие не ушло', 'в дизайнере элемент есть, но страница не опубликована'],
+      ['событие не ушло', 'не выбрана цель («куда уходит» в инспекторе)'],
+      ['событие не ушло', 'страница ещё не опубликована'],
     ],
   },
 };
@@ -121,80 +120,224 @@ function esc(value: string): string {
     .replace(/"/g, '&quot;');
 }
 
-const PORTAL = '<портал>';
-const SID = '<sid>';
-const TOKEN = '<PORTAL_TOKEN>';
-
-function methodsHtml(form: Form, el: Element): string {
-  const methods = methodsOf(form).filter((method) => method.elementId === el.id);
-  if (!methods.length) return '<div class="m"><b>Методов нет</b><br><span class="muted">элемент только показывает, бэкенд его не видит</span></div>';
-
-  return methods
-    .map((method) => {
-      let line = '';
-      let title = '';
-      if (method.kind === 'get') {
-        title = 'прочитать';
-        line = `GET  ${PORTAL}/api/v1/forms/${form.slug}/values/${el.id}?sid=${SID}`;
-      } else if (method.kind === 'post') {
-        title = 'записать';
-        line = `POST ${PORTAL}/api/v1/forms/${form.slug}/values/${el.id}?sid=${SID}`;
-      } else {
-        title = 'событие';
-        line = `POST ${PORTAL}/api/v1/forms/${form.slug}/events/${el.id}?sid=${SID}`;
-      }
-      return `<div class="m"><span><b>${esc(title)}</b><br>${esc(method.name)}<br><code>${esc(line)}</code></span></div>`;
-    })
-    .join('');
+export function kindAnchor(kind: Kind): string {
+  return `kind-${kind}`;
 }
 
-function exampleHtml(form: Form, el: Element): string {
-  const events = EVENTS_OF[el.kind] ?? [];
-  if (events.length) {
-    const payload = {
-      page: form.slug,
-      element: el.id,
-      event: events[0],
-      sid: 'a1b2c3d4e5f6',
-      values: { '<id поля>': '<значение>' },
-    };
-    return `<div class="m"><b>Что уходит в событии</b><pre>${esc(JSON.stringify(payload, null, 2))}</pre></div>`;
+export function elementSummary(kind: Kind): { name: string; what: string; anchor: string } {
+  return { name: HELP[kind].name, what: HELP[kind].what, anchor: kindAnchor(kind) };
+}
+
+/** Короткие итоги для инспектора: встраиваются в страницу админки. */
+export function helpSummaries(): Record<string, { name: string; what: string }> {
+  const out: Record<string, { name: string; what: string }> = {};
+  for (const kind of KINDS) out[kind] = { name: HELP[kind].name, what: HELP[kind].what };
+  return out;
+}
+
+function methodLines(kind: Kind): Array<[string, string, string]> {
+  const lines: Array<[string, string, string]> = [];
+  if (VALUE_KINDS.has(kind)) {
+    lines.push(['прочитать', '<страница>.<id>', 'GET  <портал>/api/v1/forms/<страница>/values/<id>?sid=<sid>']);
+    lines.push(['записать', '<страница>.post_<id>', 'POST <портал>/api/v1/forms/<страница>/values/<id>?sid=<sid>']);
+  } else if (kind === 'label') {
+    lines.push(['с галочкой «обмен»', '<страница>.<id>', 'GET  <портал>/api/v1/forms/<страница>/values/<id>?sid=<sid>']);
+    lines.push(['с галочкой «обмен»', '<страница>.post_<id>', 'POST <портал>/api/v1/forms/<страница>/values/<id>?sid=<sid>']);
   }
-  if (!hasValue(el)) return '';
-  if (el.kind === 'image') {
-    return `<div class="m"><b>Как записать</b><pre>${esc(
-      `curl -X POST "${PORTAL}/api/v1/forms/${form.slug}/values/${el.id}?sid=${SID}" \\\n  -H "Authorization: Bearer ${TOKEN}" \\\n  -H "Content-Type: image/png" \\\n  --data-binary @result.png`,
-    )}</pre></div>`;
+  for (const event of EVENTS_OF[kind] ?? []) {
+    lines.push([
+      'событие',
+      `<страница>.${event}_<id>`,
+      `POST <портал>/api/v1/forms/<страница>/events/<id>?sid=<sid>`,
+    ]);
+  }
+  return lines;
+}
+
+function writeExample(kind: Kind): string {
+  if (!VALUE_KINDS.has(kind) && kind !== 'label') return '';
+  if (kind === 'image') {
+    return [
+      'curl -X POST "<портал>/api/v1/forms/<страница>/values/<id>?sid=<sid>" \\',
+      '  -H "Authorization: Bearer <PORTAL_TOKEN>" \\',
+      '  -H "Content-Type: image/png" \\',
+      '  --data-binary @result.png',
+    ].join('\n');
   }
   const body =
-    el.kind === 'check'
+    kind === 'check'
       ? '{ "value": true }'
-      : el.kind === 'list'
+      : kind === 'list'
         ? '{ "value": ["строка", "ещё строка"] }'
-        : el.kind === 'status'
+        : kind === 'status'
           ? '{ "value": { "state": "running", "text": "работаю" } }'
-          : '{ "value": "значение" }';
-  return `<div class="m"><b>Как записать</b><pre>${esc(
-    `curl -X POST "${PORTAL}/api/v1/forms/${form.slug}/values/${el.id}?sid=${SID}" \\\n  -H "Authorization: Bearer ${TOKEN}" \\\n  -H "Content-Type: application/json" \\\n  -d '${body}'`,
-  )}</pre></div>`;
+          : kind === 'label'
+            ? '{ "value": "текст до 20 000 символов" }'
+            : '{ "value": "значение" }';
+  return [
+    'curl -X POST "<портал>/api/v1/forms/<страница>/values/<id>?sid=<sid>" \\',
+    '  -H "Authorization: Bearer <PORTAL_TOKEN>" \\',
+    '  -H "Content-Type: application/json" \\',
+    `  -d '${body}'`,
+  ].join('\n');
 }
 
-/** HTML-справка для инспектора: описание, свойства, методы, пример, ошибки. */
-export function elementHelpHtml(form: Form, el: Element): string {
-  const entry = HELP[el.kind];
+function kindSection(kind: Kind): string {
+  const entry = HELP[kind];
+  const methods = methodLines(kind)
+    .map(
+      ([title, name, line]) =>
+        `<tr><td>${esc(title)}</td><td><code>${esc(name)}</code></td><td><code>${esc(line)}</code></td></tr>`,
+    )
+    .join('');
   const props = (entry.props ?? [])
-    .map(([name, desc]) => `<div class="m"><span><b>${esc(name)}</b><br><span class="muted">${esc(desc)}</span></span></div>`)
+    .map(([name, desc]) => `<tr><td><code>${esc(name)}</code></td><td>${esc(desc)}</td></tr>`)
     .join('');
   const pitfalls = (entry.pitfalls ?? [])
-    .map(([code, text]) => `<div class="m"><span><b>${esc(code)}</b><br><span class="muted">${esc(text)}</span></span></div>`)
+    .map(([code, text]) => `<tr><td><code>${esc(code)}</code></td><td>${esc(text)}</td></tr>`)
     .join('');
+  const write = writeExample(kind);
 
   return [
-    `<h3>Справка</h3>`,
-    `<div class="m"><span><b>${esc(entry.name)}</b><br><span class="muted">${esc(entry.what)}</span></span></div>`,
-    props ? `<div class="m"><span><b>Свойства</b></span></div>${props}` : '',
-    methodsHtml(form, el),
-    exampleHtml(form, el),
-    pitfalls ? `<div class="m"><span><b>Частые ошибки</b></span></div>${pitfalls}` : '',
-  ].join('');
+    `<section id="${kindAnchor(kind)}">`,
+    `<h2>${esc(entry.name)} <span class="k">${esc(kind)}</span></h2>`,
+    `<p>${esc(entry.what)}</p>`,
+    props ? `<h3>Свойства</h3><table>${props}</table>` : '',
+    methods ? `<h3>Методы</h3><table><tr><th>что</th><th>метод</th><th>вызов</th></tr>${methods}</table>` : `<h3>Методы</h3><p>Элемент только показывает — методов нет.</p>`,
+    write ? `<h3>Как записать</h3><pre>${esc(write)}</pre>` : '',
+    pitfalls ? `<h3>Частые ошибки</h3><table>${pitfalls}</table>` : '',
+    `</section>`,
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+const COMMON = `# Справка портала
+
+## Как всё устроено
+
+Портал хранит состояние страницы и показывает то, что в него положили. Каждый элемент на
+канвасе — это **метод**: имя элемента становится именем метода.
+
+- пользователь открывает страницу и что-то вводит — значение хранится на сервере в рамках сессии;
+- нажимает кнопку — портал отправляет **событие** на выбранную цель со снимком всей формы;
+- бэкенд решает, что делать, и присылает обратно статус, картинку или текст;
+- страница обновляется сама (SSE), перезагружать её не нужно.
+
+## Авторизация
+
+| Что | Как | Для чего |
+|---|---|---|
+| Токен записи | \`Authorization: Bearer <PORTAL_TOKEN>\` | запись значений, картинок, состояния страницы |
+| Токены админского API | \`Authorization: Bearer ps_…\` | скрипты: создать страницу, опубликовать, отозвать токен |
+| Сессия админа | форма входа, кука | только админка и предпросмотр |
+
+Для записи значений нужен **токен записи**, а не токен API — это самая частая ошибка
+при подключении.
+
+## Адреса
+
+| Метод | Адрес | Что делает |
+|---|---|---|
+| GET | \`/p/<страница>\` | страница для пользователя |
+| GET | \`/api/v1/forms/<страница>/manifest\` | элементы, методы, цели (без адресов) |
+| GET | \`/api/v1/forms/<страница>/values/<id>?sid=<sid>\` | прочитать значение |
+| POST | \`/api/v1/forms/<страница>/values/<id>?sid=<sid>\` | записать значение (JSON или image/*) |
+| POST | \`/api/v1/forms/<страница>/events/<id>?sid=<sid>\` | браузер: событие |
+| GET | \`/api/v1/forms/<страница>/stream\` | SSE: изменения |
+| GET | \`/api/v1/forms/<страница>/state\` | состояние страницы (общее) |
+| POST | \`/api/v1/forms/<страница>/state\` | бэкенд: записать состояние страницы |
+| GET | \`/media/<id>\` | картинка |
+| GET | \`/api/v1/pages\` | список страниц со статусами |
+
+\`sid\` — идентификатор сессии посетителя: приходит в событии полем \`sid\` и в куке
+\`ps_sid\`. Без него запись не поймёт, какой странице отдать значение.
+
+## События и цели
+
+Событие уходит на **цель** — именованный адрес из «Цели событий». В элементе хранится
+только имя цели, поэтому страницу можно переносить между стендами, не выдавая адреса
+вебхуков.
+
+## Частые ошибки
+
+| Код | Причина | Что делать |
+|---|---|---|
+| 401 | не тот токен | для значений — токен записи, не токен API |
+| 415 | не тот Content-Type | для картинки \`image/png\`, для значения \`application/json\` |
+| 400 | нет \`sid\` | брать \`sid\` из тела события |
+| 404 | нет такой страницы или элемента | проверить \`slug\` и \`id\` в манифесте |
+`;
+
+const STYLE = `
+:root { --bg:#0b0e13; --text:#e6edf3; --muted:#8b949e; --line:#232c3b; --accent:#4f8cff; --panel:#121722; }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--text); font:15px/1.6 "Segoe UI", system-ui, -apple-system, Arial, sans-serif; }
+.layout { display:grid; grid-template-columns: 260px minmax(0, 900px); gap:36px; max-width:1250px; margin:0 auto; padding:28px 24px 80px; }
+.toc { position:sticky; top:24px; align-self:start; font-size:13px; }
+.toc a { display:block; color:var(--muted); text-decoration:none; padding:3px 0; }
+.toc a:hover { color:var(--text); }
+.toc .group { margin:16px 0 4px; color:#6b7787; text-transform:uppercase; letter-spacing:.07em; font-size:10px; }
+main h1 { margin:0 0 14px; font-size:28px; }
+main h2 { margin:34px 0 10px; font-size:20px; padding-top:10px; border-top:1px solid var(--line); }
+main h3 { margin:20px 0 8px; font-size:15px; color:#c9d1d9; }
+main p { margin:8px 0; }
+main code { background:var(--panel); border:1px solid var(--line); border-radius:5px; padding:1px 5px; font-family:ui-monospace, Consolas, monospace; font-size:.92em; }
+main pre { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px 14px; overflow:auto; }
+main pre code { background:none; border:0; padding:0; }
+main table { border-collapse:collapse; width:100%; margin:8px 0 4px; font-size:13px; }
+main th, main td { border:1px solid var(--line); padding:6px 9px; text-align:left; vertical-align:top; }
+main th { background:var(--panel); font-weight:600; }
+main ul { margin:8px 0; padding-left:22px; }
+main a { color:var(--accent); }
+.k { font-size:11px; color:#6b7787; font-weight:400; }
+section h2 { scroll-margin-top:20px; }
+@media (max-width: 900px) { .layout { grid-template-columns: 1fr; } .toc { position:static; } }
+`;
+
+/** Полная страница справки: общие разделы + раздел на каждый вид элемента. */
+export function guidePage(): string {
+  const kinds = KINDS.map((kind) => `<a href="#${kindAnchor(kind)}">${esc(HELP[kind].name)}</a>`).join('');
+  const sections = KINDS.map((kind) => kindSection(kind)).join('\n');
+  const commonHtml = renderMarkdown(COMMON, 1)
+    .replace('<h2>Как всё устроено</h2>', '<h2 id="how">Как всё устроено</h2>')
+    .replace('<h2>Авторизация</h2>', '<h2 id="auth">Авторизация</h2>')
+    .replace('<h2>Адреса</h2>', '<h2 id="api">Адреса</h2>')
+    .replace('<h2>События и цели</h2>', '<h2 id="events">События и цели</h2>')
+    .replace('<h2>Частые ошибки</h2>', '<h2 id="errors">Частые ошибки</h2>');
+
+  return `<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Справка портала</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%234f8cff'/><rect x='7' y='10' width='18' height='4' rx='2' fill='white'/><rect x='7' y='18' width='12' height='4' rx='2' fill='white' opacity='.65'/></svg>">
+<style>${STYLE}</style>
+</head>
+<body>
+<div class="layout">
+  <nav class="toc">
+    <a href="#top"><b>Справка</b></a>
+    <div class="group">Общее</div>
+    <a href="#how">Как всё устроено</a>
+    <a href="#auth">Авторизация</a>
+    <a href="#api">Адреса</a>
+    <a href="#events">События и цели</a>
+    <a href="#errors">Частые ошибки</a>
+    <div class="group">Элементы</div>
+    ${kinds}
+  </nav>
+  <main id="top">
+    ${commonHtml}
+    <section id="kinds">
+      <h2>Элементы</h2>
+      <p>У каждого вида — что это, свойства, методы и частые ошибки. Методы показаны шаблоном:
+      <code>&lt;страница&gt;</code>, <code>&lt;id&gt;</code>, <code>&lt;sid&gt;</code> подставляются по вашей странице.</p>
+    </section>
+    ${sections}
+  </main>
+</div>
+</body>
+</html>`;
 }

@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+﻿import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { EVENTS_OF, type Element, type Form } from './model.js';
 import type { Values } from './state.js';
@@ -62,7 +62,12 @@ function markupInline(text: string): string {
     .replace(MARKUP_LINK, '<a href="$2" target="_blank" rel="noopener">$1</a>');
 }
 
-function markupToHtml(source: string): string {
+/** Минимальный маркдаун: используется и страницами, и справкой в админке. */
+export function renderMarkdown(source: string, startLevel = 2): string {
+  return markupToHtml(source, startLevel);
+}
+
+function markupToHtml(source: string, startLevel = 2): string {
   const lines = escapeHtml(source).split('\n');
   const out: string[] = [];
   let list: string[] | null = null;
@@ -88,7 +93,7 @@ function markupToHtml(source: string): string {
     const heading = /^(#{1,3})\s+(.*)$/.exec(line);
     if (heading) {
       flushList();
-      const level = (heading[1] ?? '#').length + 1;
+      const level = (heading[1] ?? '#').length - 1 + startLevel;
       out.push(`<h${level}>${markupInline(heading[2] ?? '')}</h${level}>`);
       continue;
     }
