@@ -762,7 +762,8 @@
         html += '<div class="muted" style="padding:0 14px 8px;color:#f0c05a">цели «' + escapeHtml(el.target) + '» нет — события не уйдут</div>';
       }
     }
-    if (el.kind !== 'status') html += row('подпись', textInput('label', el.label));
+    // у «Текста» текст задаётся в «данных», отдельная подпись только путала бы
+    if (el.kind !== 'status' && el.kind !== 'label') html += row('подпись', textInput('label', el.label));
     html += '<div class="row pair"><label>прямоуг.</label>' + numberInput('x', el.x) + numberInput('y', el.y) + '</div>';
     html += '<div class="row pair"><label>размер</label>' + numberInput('w', el.w) + numberInput('h', el.h) + '</div>';
 
