@@ -393,6 +393,23 @@ main {
   outline: none;
 }
 .modal-box input:focus { border-color: var(--accent); }
+/* галочки в модалках не растягиваем: это не текстовое поле */
+.modal-box input[type="checkbox"],
+.modal-box input[type="radio"] {
+  display: inline-block;
+  width: auto;
+  margin: 0;
+  flex: none;
+  accent-color: var(--accent);
+}
+.modal-box label.check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--text);
+}
 .modal-section {
   margin: 18px 0 10px;
   padding-top: 14px;
