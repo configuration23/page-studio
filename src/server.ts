@@ -280,6 +280,12 @@ function normalizeValue(el: Element, raw: unknown): unknown {
       if (raw.length > max) throw new HttpError(400, `«${el.id}»: не длиннее ${max} символов`);
       return raw;
     }
+    case 'label': {
+      if (!el.props.send) throw new HttpError(400, `«${el.id}»: у текста не включён обмен`);
+      if (typeof raw !== 'string') throw new HttpError(400, `«${el.id}»: ожидал строку`);
+      if (raw.length > 20000) throw new HttpError(400, `«${el.id}»: не длиннее 20000 символов`);
+      return raw;
+    }
     default:
       throw new HttpError(400, `«${el.id}» (${el.kind}) не принимает значение`);
   }

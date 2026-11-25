@@ -193,6 +193,8 @@ main {
   padding: 6px;
 }
 .el .box.btnbox { background: var(--accent); color: #fff; border: 0; font-weight: 600; }
+/* длинный текст в «Тексте»: переносы сохраняем, лишнее прокручиваем */
+.el.k-label .box { white-space: pre-wrap; overflow: auto; word-break: break-word; align-items: flex-start; }
 .el .box.galbox {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -221,6 +223,19 @@ main {
 #inspector .row { display: flex; gap: 8px; padding: 3px 14px; align-items: center; }
 #inspector .row label { width: 74px; color: var(--muted); font-size: 12px; flex: none; }
 #inspector .row input, #inspector .row select, #inspector .row textarea { width: 100%; }
+/* галочки в инспекторе не должны растягиваться на всю строку */
+#inspector .row input[type="checkbox"],
+#inspector .row input[type="radio"] { width: auto; flex: none; accent-color: var(--accent); }
+#inspector .row label.inline {
+  width: auto;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-size: 13px;
+}
+#inspector .row textarea[data-prop="p:text"] { min-height: 120px; }
 #inspector .row.pair input { width: 50%; }
 #inspector textarea { min-height: 64px; resize: vertical; font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
 #inspector .empty { padding: 14px; color: var(--muted); }

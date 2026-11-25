@@ -43,7 +43,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const TEST_FORM = {
   slug: PAGE,
   title: 'Проверка контракта',
-  canvas: { width: 960, height: 600 },
+  canvas: { width: 960, height: 800 },
   elements: [
     { id: 'prompt', kind: 'memo', x: 40, y: 40, w: 520, h: 120, label: 'Промпт', props: { placeholder: 'что нарисовать' } },
     { id: 'push', kind: 'button', x: 600, y: 40, w: 200, h: 48, label: 'Нарисовать', target: 'demo', props: { primary: true } },
@@ -51,6 +51,7 @@ const TEST_FORM = {
     { id: 'image', kind: 'image', x: 40, y: 190, w: 520, h: 360, label: 'Результат', props: { zoom: true, newWindow: true } },
     { id: 'gallery', kind: 'gallery', x: 600, y: 190, w: 300, h: 360, label: 'История' },
     { id: 'open', kind: 'onload', x: 40, y: 560, w: 220, h: 32, target: 'demo' },
+    { id: 'doc', kind: 'label', x: 40, y: 604, w: 880, h: 140, props: { text: 'Начальный текст', send: true } },
   ],
 };
 
@@ -207,6 +208,26 @@ async function main() {
       body: JSON.stringify({ value: prompt }),
     });
     check('промпт записан', setPrompt.res.ok && setPrompt.body.value === prompt);
+
+    check(
+      'манифест: у текста есть методы обмена',
+      methods.includes(`${PAGE}.doc`) && methods.includes(`${PAGE}.post_doc`),
+    );
+
+    const longText = 'строка текста с переносами.\n'.repeat(120);
+    const setDoc = await api(`/api/v1/forms/${PAGE}/values/doc?sid=${sid}`, {
+      method: 'POST',
+      headers: json,
+      body: JSON.stringify({ value: longText }),
+    });
+    check(
+      'длинный текст записывается целиком',
+      setDoc.res.ok && setDoc.body.value?.length === longText.length,
+      `код ${setDoc.res.status}, ${setDoc.body.value?.length ?? 0} символов`,
+    );
+
+    const pageWithDoc = await api(`/p/${PAGE}?sid=${sid}`);
+    check('текст с бэкенда виден на странице', String(pageWithDoc.body).includes('строка текста с переносами.'));
 
     const event = await api(`/api/v1/forms/${PAGE}/events/push?sid=${sid}`, {
       method: 'POST',

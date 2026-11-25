@@ -6,9 +6,9 @@
       kind: 'label',
       name: 'Текст',
       ic: 'T',
-      props: ['text', 'size'],
-      hint: 'статичный текст, не метод',
-      detail: 'Надпись на странице: заголовок, пояснение, подпись к блоку. Метода у неё нет — бэкенд этот элемент не видит и не меняет. Поле «текст» — что именно показать.'
+      props: ['text', 'size', 'send'],
+      hint: 'текст или данные от бэкенда',
+      detail: 'Блок текста: заголовок, пояснение, длинная инструкция. «Данные» — многострочное поле, переносы сохраняются, длинный текст прокручивается внутри блока. По умолчанию это просто надпись: метода у неё нет, бэкенд её не видит. Галочка «обмен» включает методы <страница>.<id> и <страница>.post_<id>: текст можно прочитать, прислать из бэкенда и он попадает в снимок формы при событиях. Пользователь текст не редактирует — для ввода есть «Абзац».'
     },
     {
       kind: 'edit',
@@ -705,9 +705,12 @@
     });
   }
 
-  function methodsFor(el) {    var list = [];
+  function methodsFor(el) {
+    var list = [];
     var base = state.slug + '.' + el.id;
-    if (VALUE_KINDS.indexOf(el.kind) >= 0) {
+    var sends =
+      VALUE_KINDS.indexOf(el.kind) >= 0 || (el.kind === 'label' && el.props && el.props.send === true);
+    if (sends) {
       list.push({ name: base, kind: 'get', title: 'прочитать' });
       list.push({ name: state.slug + '.post_' + el.id, kind: 'post', title: 'записать' });
     }
@@ -766,7 +769,20 @@
     var props = KINDS.filter(function (k) { return k.kind === el.kind; })[0].props;
     if (props.length) {
       html += '<h3>Свойства</h3>';
-      if (props.indexOf('text') >= 0) html += row('текст', textInput('p:text', el.props.text, 'что показать'));
+      if (props.indexOf('text') >= 0) {
+        html +=
+          '<div class="row"><label>данные</label><textarea data-prop="p:text" rows="6" placeholder="текст, можно много строк">' +
+          escapeHtml(el.props.text || '') +
+          '</textarea></div>';
+      }
+      if (props.indexOf('send') >= 0) {
+        html += row(
+          'обмен',
+          '<label class="inline"><input type="checkbox" data-prop="p:send"' +
+            (el.props.send ? ' checked' : '') +
+            '> отдавать текст бэкенду</label>'
+        );
+      }
       if (props.indexOf('size') >= 0) {
         html += row(
           'кегль',

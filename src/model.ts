@@ -40,7 +40,11 @@ export const EVENTS_OF: Partial<Record<Kind, readonly string[]>> = {
 };
 
 export const propsSchema = z.object({
-  text: z.string().max(2000).optional(),
+  text: z.string().max(20000).optional(),
+  /** Текст участвует в обмене: у элемента появляются методы get/post. */
+  send: z.boolean().optional(),
+  /** Будущий формат отображения; пока всё показывается как обычный текст. */
+  format: z.enum(['text', 'markdown']).optional(),
   size: z.enum(['s', 'm', 'l', 'xl']).optional(),
   placeholder: z.string().max(200).optional(),
   value: z.string().max(2000).optional(),
@@ -160,12 +164,19 @@ export type Method = {
   event?: string;
 };
 
+/** Участвует ли элемент в обмене значениями (get/post и снимок формы). */
+export function hasValue(el: Element): boolean {
+  if (VALUE_KINDS.has(el.kind)) return true;
+  // «Текст» становится значением, только если это включили в настройках
+  return el.kind === 'label' && el.props.send === true;
+}
+
 /** Методы выводятся из раскладки: отдельно их никто не заводит. */
 export function methodsOf(form: Form): Method[] {
   const out: Method[] = [];
   for (const el of form.elements) {
     const base = `${form.slug}.${el.id}`;
-    if (VALUE_KINDS.has(el.kind)) {
+    if (hasValue(el)) {
       out.push({ name: base, kind: 'get', elementId: el.id, elementKind: el.kind });
       out.push({ name: `${form.slug}.post_${el.id}`, kind: 'post', elementId: el.id, elementKind: el.kind });
     }

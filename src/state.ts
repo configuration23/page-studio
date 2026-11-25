@@ -32,6 +32,10 @@ function initial(form: Form): Values {
       case 'status':
         values[el.id] = { state: 'idle', text: '' } satisfies StatusValue;
         break;
+      case 'label':
+        // «Текст» с включённым обменом держит своё значение как остальные поля
+        if (el.props.send) values[el.id] = el.props.text ?? '';
+        break;
       default:
         break;
     }

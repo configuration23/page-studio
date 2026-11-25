@@ -120,6 +120,13 @@ select.inp { min-height: 32px; }
 .btn.ghost { background: #e6ebf3; color: #1d2530; }
 
 .txt { white-space: pre-wrap; }
+/* длинный текст не вылезает из элемента: внутри блока своя прокрутка */
+.el.k-label { overflow: hidden; }
+.el.k-label .txt {
+  max-height: 100%;
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
 .txt.h-l { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
 .txt.h-m { font-size: 16px; font-weight: 700; }
 

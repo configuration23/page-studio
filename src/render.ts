@@ -51,8 +51,10 @@ function renderInner(el: Element, value: unknown, items: GalleryItem[]): string 
 
   switch (el.kind) {
     case 'label': {
-      const text = p.text ?? el.label ?? '';
-      return `<div class="txt">${escapeHtml(text)}</div>`;
+      // если у текста включён обмен, показываем присланное значение, иначе — данные из настроек
+      const shown =
+        value !== undefined && value !== null ? String(value) : (p.text ?? el.label ?? '');
+      return `<div class="txt">${escapeHtml(shown)}</div>`;
     }
     case 'edit': {
       const max = p.max ? ` maxlength="${p.max}"` : '';
