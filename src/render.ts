@@ -85,6 +85,13 @@ function markupToHtml(source: string): string {
       out.push(line);
       continue;
     }
+    const heading = /^(#{1,3})\s+(.*)$/.exec(line);
+    if (heading) {
+      flushList();
+      const level = (heading[1] ?? '#').length + 1;
+      out.push(`<h${level}>${markupInline(heading[2] ?? '')}</h${level}>`);
+      continue;
+    }
     const bullet = /^\s*[-*]\s+(.*)$/.exec(line);
     if (bullet) {
       if (!list) list = [];

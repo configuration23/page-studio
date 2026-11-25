@@ -121,6 +121,9 @@ select.inp { min-height: 32px; }
 
 .txt { white-space: pre-wrap; }
 /* минимальный маркдаун внутри «Текста» */
+.txt h2 { font-size: 1.5em; margin: 12px 0 6px; }
+.txt h3 { font-size: 1.25em; margin: 10px 0 5px; }
+.txt h4 { font-size: 1.08em; margin: 8px 0 4px; }
 .txt ul { margin: 6px 0; padding-left: 20px; }
 .txt li { margin: 2px 0; }
 .txt pre {
