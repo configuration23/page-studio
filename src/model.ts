@@ -77,6 +77,8 @@ export const elementSchema = z.object({
   h: z.number().int().min(20).max(2000),
   label: z.string().max(120).optional(),
   hidden: z.boolean().default(false),
+  /** Неактивен: видно, но не реагирует (серый). */
+  disabled: z.boolean().default(false),
   /** Имя цели, куда уходят события элемента. Адрес цели — отдельно, в targets.yaml. */
   target: z.string().regex(/^[a-z][a-z0-9_-]{0,30}$/, 'цель: латиница, цифры, _ и -').optional(),
   props: propsSchema.default({}),
@@ -89,6 +91,8 @@ export const formSchema = z
     slug: z.string().regex(/^[a-z0-9][a-z0-9-]{0,40}$/, 'slug: латиница, цифры, дефис'),
     title: z.string().min(1).max(120),
     lead: z.string().max(600).optional(),
+    /** Скрыта из списка страниц, но открывается по прямой ссылке. */
+    hidden: z.boolean().default(false),
     canvas: z
       .object({
         width: z.number().int().min(320).max(1920).default(960),

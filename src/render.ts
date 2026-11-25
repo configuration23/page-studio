@@ -201,28 +201,38 @@ function renderInner(el: Element, value: unknown, items: GalleryItem[]): string 
   }
 }
 
-function renderElement(el: Element, value: unknown, items: GalleryItem[]): string {
-  // триггер открытия на странице не виден: он только отправляет событие
-  const invisible = el.kind === 'onload' || el.hidden;
+function renderElement(el: Element, value: unknown, items: GalleryItem[], ui?: UiState): string {
+  const isOnload = el.kind === 'onload';
+  // скрытие и активность: статические из настроек плюс те, что прислал бэкенд
+  const hidden = el.hidden || (ui?.hidden.includes(el.id) ?? false);
+  const disabled = el.disabled || (ui?.disabled.includes(el.id) ?? false);
   const style = [
     `left:${el.x}px`,
     `top:${el.y}px`,
     `width:${el.w}px`,
     `height:${el.h}px`,
-    invisible ? 'display:none' : '',
+    // триггер открытия на странице не виден: он только отправляет событие
+    isOnload ? 'display:none' : '',
   ]
     .filter(Boolean)
     .join(';');
-  const onload = el.kind === 'onload' ? ' data-onload="1"' : '';
+  const onload = isOnload ? ' data-onload="1"' : '';
+  const classes = ['el', `k-${el.kind}`, sizeClass(el), hidden ? 'is-hidden' : '', disabled ? 'is-disabled' : '']
+    .filter(Boolean)
+    .join(' ');
 
-  return `<div class="el k-${el.kind} ${sizeClass(el)}" data-id="${escapeHtml(el.id)}" data-kind="${el.kind}"${eventAttr(el)}${onload} style="${style}">${renderInner(el, value, items)}</div>`;
+  return `<div class="${classes}" data-id="${escapeHtml(el.id)}" data-kind="${el.kind}"${eventAttr(el)}${onload} style="${style}">${renderInner(el, value, items)}</div>`;
 }
+
+export type UiState = { hidden: string[]; disabled: string[] };
 
 export type PageOptions = {
   footer?: string;
   /** Ссылки в верхней панели: возврат к списку, выход в админку. */
   nav?: Array<{ href: string; label: string }>;
   badge?: string;
+  /** Видимость и активность, которой управляет бэкенд. */
+  ui?: UiState;
 };
 
 export function renderPage(
@@ -236,7 +246,7 @@ export function renderPage(
   const height = form.canvas.height ?? bottom + 40;
 
   const elements = form.elements
-    .map((el) => renderElement(el, values[el.id], galleries[el.id] ?? []))
+    .map((el) => renderElement(el, values[el.id], galleries[el.id] ?? [], options.ui))
     .join('\n      ');
 
   const nav = (options.nav ?? [])

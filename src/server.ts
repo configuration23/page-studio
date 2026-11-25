@@ -51,13 +51,15 @@ function indexItems(): Array<{
   elements: number;
   state: { state: string; text?: string; ts?: string };
 }> {
-  return [...forms.values()].map((form) => ({
-    slug: form.slug,
-    title: form.title,
-    lead: form.lead,
-    elements: form.elements.length,
-    state: pageStates.get(form.slug),
-  }));
+  return [...forms.values()]
+    .filter((form) => !form.hidden)
+    .map((form) => ({
+      slug: form.slug,
+      title: form.title,
+      lead: form.lead,
+      elements: form.elements.length,
+      state: pageStates.get(form.slug),
+    }));
 }
 const state = new StateStore(config.dataDir);
 const images = new ImageStore(config.dataDir);
@@ -336,11 +338,13 @@ app.get('/pages', async (_req, reply) =>
 
 /** Список для обновления статусов на клиенте. */
 app.get('/api/v1/pages', async () => ({
-  pages: [...forms.values()].map((form) => ({
-    slug: form.slug,
-    title: form.title,
-    state: pageStates.get(form.slug),
-  })),
+  pages: [...forms.values()]
+    .filter((form) => !form.hidden)
+    .map((form) => ({
+      slug: form.slug,
+      title: form.title,
+      state: pageStates.get(form.slug),
+    })),
 }));
 
 app.get('/api/v1/forms/:slug/state', async (req) => {
@@ -359,6 +363,37 @@ app.post('/api/v1/forms/:slug/state', async (req, reply) => {
   const text = body.value?.text ? String(body.value.text) : undefined;
   const value = pageStates.set(form.slug, state as (typeof PAGE_STATES)[number], text);
   log.add({ kind: 'value', page: form.slug, name: `${form.slug}.state`, ok: true, note: state });
+  return reply.send({ value });
+});
+
+app.get('/api/v1/forms/:slug/ui', async (req) => {
+  const form = getForm((req.params as { slug: string }).slug);
+  const sid = requireSid(req);
+  return { value: state.ui(form, sid) };
+});
+
+app.post('/api/v1/forms/:slug/ui/:id', async (req, reply) => {
+  if (!authorized(req)) throw new HttpError(401, 'нужен токен портала');
+  const form = getForm((req.params as { slug: string }).slug);
+  const el = getElement(form, (req.params as { slug: string; id: string }).id);
+  const sid = requireSid(req);
+  const body = (req.body ?? {}) as { hidden?: unknown; disabled?: unknown };
+
+  const patch: { hidden?: boolean; disabled?: boolean } = {};
+  if ('hidden' in body) patch.hidden = Boolean(body.hidden);
+  if ('disabled' in body) patch.disabled = Boolean(body.disabled);
+  if (patch.hidden === undefined && patch.disabled === undefined) {
+    throw new HttpError(400, 'нужен hidden или disabled: true/false');
+  }
+
+  const value = state.setUiElement(form, sid, el.id, patch);
+  log.add({
+    kind: 'value',
+    page: form.slug,
+    name: `${form.slug}.ui_${el.id}`,
+    ok: true,
+    note: `скрыто ${value.hidden.length}, неактивно ${value.disabled.length}`,
+  });
   return reply.send({ value });
 });
 
@@ -387,7 +422,14 @@ app.get('/p/:slug', async (req, reply) => {
   ];
   return reply
     .type('text/html; charset=utf-8')
-    .send(renderPage(form, values, galleriesOf(form), { footer, nav, badge: isDraft ? 'черновик' : '' }));
+    .send(
+      renderPage(form, values, galleriesOf(form), {
+        footer,
+        nav,
+        badge: isDraft ? 'черновик' : '',
+        ui: state.ui(form, sid),
+      }),
+    );
 });
 
 app.get('/media/:id', async (req, reply) => {

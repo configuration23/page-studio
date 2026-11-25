@@ -8,6 +8,13 @@ export type StatusValue = { state: 'idle' | 'queued' | 'running' | 'done' | 'fai
 export type ImageValue = { imageId: string } | null;
 export type Change = { id: string; value: unknown; version: number };
 
+/** Видимость и активность, которой управляет бэкенд во время работы. */
+export type UiState = { hidden: string[]; disabled: string[] };
+
+/** Служебный ключ в снимке состояния: в значения элементов не попадает. */
+const UI_KEY = '__ui';
+export const UI_CHANGE_ID = UI_KEY;
+
 function initial(form: Form): Values {
   const values: Values = {};
   for (const el of form.elements) {
@@ -95,7 +102,8 @@ export class StateStore {
     }
   }
 
-  values(form: Form, sid: string): Values {
+  /** Сырой снимок состояния: значения элементов плюс служебный ключ видимости. */
+  private valuesRef(form: Form, sid: string): Values {
     let sessions = this.byForm.get(form.slug);
     if (!sessions) {
       sessions = new Map();
@@ -118,12 +126,66 @@ export class StateStore {
     return values;
   }
 
+  /** Значения элементов — без служебных ключей: это то, что видит бэкенд. */
+  values(form: Form, sid: string): Values {
+    const raw = this.valuesRef(form, sid);
+    const out: Values = {};
+    for (const [id, value] of Object.entries(raw)) {
+      if (id !== UI_KEY) out[id] = value;
+    }
+    return out;
+  }
+
   get(form: Form, sid: string, id: string): unknown {
     return this.values(form, sid)[id];
   }
 
+  /** Текущая видимость/активность: пустые списки, если бэкенд ещё не присылал. */
+  ui(form: Form, sid: string): UiState {
+    const raw = this.valuesRef(form, sid)[UI_KEY] as UiState | undefined;
+    return {
+      hidden: Array.isArray(raw?.hidden) ? raw.hidden : [],
+      disabled: Array.isArray(raw?.disabled) ? raw.disabled : [],
+    };
+  }
+
+  /** Служебное состояние видимости — только для внутренней работы. */
+  setUi(form: Form, sid: string, patch: Partial<UiState>): UiState {
+    const raw = this.valuesRef(form, sid);
+    const current = this.ui(form, sid);
+    const next: UiState = {
+      hidden: patch.hidden ?? current.hidden,
+      disabled: patch.disabled ?? current.disabled,
+    };
+    raw[UI_KEY] = next;
+    this.version += 1;
+    const change: Change = { id: UI_CHANGE_ID, value: next, version: this.version };
+    this.persist(form.slug, sid, raw);
+    this.emitter.emit(this.key(form.slug, sid), change);
+    return next;
+  }
+
+  /** Бэкенд включает/выключает один элемент, не трогая остальные. */
+  setUiElement(
+    form: Form,
+    sid: string,
+    id: string,
+    patch: { hidden?: boolean; disabled?: boolean },
+  ): UiState {
+    const current = this.ui(form, sid);
+    const hidden = new Set(current.hidden);
+    const disabled = new Set(current.disabled);
+
+    if (patch.hidden === true) hidden.add(id);
+    else if (patch.hidden === false) hidden.delete(id);
+    if (patch.disabled === true) disabled.add(id);
+    else if (patch.disabled === false) disabled.delete(id);
+
+    return this.setUi(form, sid, { hidden: [...hidden], disabled: [...disabled] });
+  }
+
   set(form: Form, sid: string, id: string, value: unknown): Change {
-    const values = this.values(form, sid);
+    const values = this.valuesRef(form, sid);
     if (!(id in values)) {
       throw new Error(`в форме «${form.slug}» нет значения «${id}»`);
     }

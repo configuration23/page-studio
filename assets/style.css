@@ -143,6 +143,14 @@ select.inp { min-height: 32px; }
 }
 .txt pre code { background: none; padding: 0; }
 .txt a { color: var(--accent); }
+/* скрытие и активность: статические из настроек и динамические от бэкенда */
+.el.is-hidden { display: none !important; }
+.el.is-disabled {
+  opacity: 0.45;
+  filter: grayscale(0.35);
+  pointer-events: none;
+}
+
 /* длинный текст не вылезает из элемента: внутри блока своя прокрутка */
 .el.k-label { overflow: hidden; }
 .el.k-label .txt {

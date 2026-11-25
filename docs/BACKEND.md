@@ -99,6 +99,22 @@ curl -X POST "$PORTAL/api/v1/forms/generation/state" \
 `state` — `idle`, `queued`, `running`, `done`, `failed`. Читается без токена:
 `GET /api/v1/forms/<slug>/state`.
 
+### Скрыть или отключить элемент (необязательно)
+
+Элемент можно скрыть или сделать неактивным по ходу работы — например, показывать
+дополнительные поля только после согласия. Меняется **по одному элементу**, остальные
+не трогаются:
+
+```bash
+curl -X POST "$PORTAL/api/v1/forms/clipart/ui/extra?sid=$SID" \
+  -H "authorization: Bearer $PORTAL_TOKEN" \
+  -H "content-type: application/json" \
+  -d '{"hidden": true}'
+```
+
+`hidden` — убрать с страницы, `disabled` — показать серым и не реагирующим.
+`false` возвращает как было. Прочитать текущее: `GET /api/v1/forms/<slug>/ui?sid=<sid>`.
+
 **Подпись к картинке кодируйте.** `note` идёт в адресе, а сырые не-ASCII байты в
 строке запроса Node отклоняет ещё до приложения: снаружи это `400 Bad Request`, и в
 журнале портала запроса не будет — легко искать не там. В n8n:

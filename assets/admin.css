@@ -295,6 +295,13 @@ main {
 
 #canvas.overflow { box-shadow: 0 0 0 2px #b8860b, 0 20px 60px rgba(0, 0, 0, 0.55); }
 
+/* в дизайнере скрытый элемент не исчезает: иначе его не выделить */
+#canvas .el.is-hidden-designer {
+  opacity: 0.35;
+  outline: 1px dashed #b8860b;
+}
+#canvas .el.is-disabled { opacity: 0.5; filter: grayscale(0.35); }
+
 .guide { position: absolute; background: #ff4d9d; pointer-events: none; z-index: 5; }
 .guide.v { width: 1px; top: 0; bottom: 0; }
 .guide.h { height: 1px; left: 0; right: 0; }

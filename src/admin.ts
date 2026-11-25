@@ -146,7 +146,8 @@ export function renderAdmin(): string {
         <label>Подпись<input id="page-lead" autocomplete="off"></label>
         <label>Ширина, px<input id="page-width" type="number" min="320" max="1920" step="10"></label>
         <label>Высота, px<input id="page-height" type="number" min="200" max="8000" step="10" placeholder="авто"></label>
-        <p class="modal-hint">Пустая высота — по содержимому. Заданная — фиксированная; элемент ниже границы подсвечивается на канвасе.</p>
+        <label class="check-row"><input type="checkbox" id="page-hidden"> скрыть из списка страниц</label>
+        <p class="modal-hint">Пустая высота — по содержимому. Заданная — фиксированная; элемент ниже границы подсвечивается на канвасе. Скрытая страница остаётся доступной по прямой ссылке.</p>
       </section>
       <section>
         <h4>Редактор</h4>

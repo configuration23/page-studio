@@ -1,0 +1,14 @@
+slug: ui-demo
+title: UI
+canvas:
+  width: 960
+elements:
+  - id: heading
+    kind: label
+    x: 40
+    y: 32
+    w: 600
+    h: 48
+    props:
+      text: UI
+      size: l

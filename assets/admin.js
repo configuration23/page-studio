@@ -465,7 +465,11 @@
     canvas.innerHTML = '';
     state.form.elements.forEach(function (el) {
       var node = document.createElement('div');
-      node.className = 'el' + (el.id === state.selected ? ' sel' : '');
+      node.className =
+        'el' +
+        (el.id === state.selected ? ' sel' : '') +
+        (el.hidden ? ' is-hidden-designer' : '') +
+        (el.disabled ? ' is-disabled' : '');
       node.dataset.id = el.id;
       node.style.cssText =
         'left:' + el.x + 'px;top:' + el.y + 'px;width:' + el.w + 'px;height:' + el.h + 'px';
@@ -851,6 +855,9 @@
       }
     }
 
+    html += row('видимость', '<label class="inline"><input type="checkbox" data-prop="hidden"' + (el.hidden ? ' checked' : '') + '> скрыт на странице</label>');
+    html += row('активность', '<label class="inline"><input type="checkbox" data-prop="disabled"' + (el.disabled ? ' checked' : '') + '> неактивен</label>');
+
     html += '<div class="row" style="margin-top:8px"><label></label><button class="btn danger" id="delete-el">Удалить элемент</button></div>';
 
     var summary = (window.__HELP || {})[el.kind];
@@ -970,6 +977,7 @@
     $('#page-width').value = state.form.canvas.width;
     $('#page-height').value = state.form.canvas.height || '';
     $('#page-default').checked = state.defaultPage === state.slug;
+    $('#page-hidden').checked = Boolean(state.form.hidden);
     $('#page-list-view').value = state.listView || 'cards';
     $('#index-title').value = state.indexTitle;
     $('#index-lead').value = state.indexLead;
@@ -997,7 +1005,8 @@
       title: state.form.title,
       lead: state.form.lead || '',
       width: state.form.canvas.width,
-      height: state.form.canvas.height || null
+      height: state.form.canvas.height || null,
+      hidden: Boolean(state.form.hidden)
     });
     snapshot();
     state.form.title = title;
@@ -1012,6 +1021,8 @@
     var height = parseInt(heightRaw, 10);
     if (heightRaw && height >= 200 && height <= 8000) state.form.canvas.height = height;
     else delete state.form.canvas.height;
+
+    state.form.hidden = $('#page-hidden').checked;
 
     // после смены ширины элементы не должны вылезать за канвас
     state.form.elements.forEach(function (el) {
@@ -1087,7 +1098,8 @@
       title: state.form.title,
       lead: state.form.lead || '',
       width: state.form.canvas.width,
-      height: state.form.canvas.height || null
+      height: state.form.canvas.height || null,
+      hidden: Boolean(state.form.hidden)
     });
     if (before !== after) {
       markDirty();

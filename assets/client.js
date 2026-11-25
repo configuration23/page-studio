@@ -274,12 +274,24 @@
     });
   });
 
+  /** Бэкенд прислал, что скрыть и что сделать неактивным. */
+  function applyUi(value) {
+    var hidden = (value && value.hidden) || [];
+    var disabled = (value && value.disabled) || [];
+    Array.prototype.forEach.call(document.querySelectorAll('.el[data-id]'), function (node) {
+      var id = node.getAttribute('data-id');
+      node.classList.toggle('is-hidden', hidden.indexOf(id) >= 0);
+      node.classList.toggle('is-disabled', disabled.indexOf(id) >= 0);
+    });
+  }
+
   if (window.EventSource) {
     var source = new EventSource('/api/v1/forms/' + PAGE + '/stream');
     source.onmessage = function (event) {
       try {
         var msg = JSON.parse(event.data);
-        apply(msg.id, msg.value);
+        if (msg.id === '__ui') applyUi(msg.value);
+        else apply(msg.id, msg.value);
       } catch (err) {
         /* битое сообщение не должно ронять страницу */
       }
