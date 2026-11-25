@@ -367,7 +367,9 @@ app.get('/p/:slug', async (req, reply) => {
     query.debug === '1' ? `${form.elements.length} элементов · сессия ${sid}` : '';
   const isDraft = query.draft === '1';
   const nav = [
-    ...(isDraft ? [{ href: '/admin', label: '← В админку' }] : []),
+    ...(isDraft
+      ? [{ href: `/admin?page=${encodeURIComponent(form.slug)}`, label: '← В админку' }]
+      : []),
     { href: '/pages', label: 'К списку страниц' },
   ];
   return reply

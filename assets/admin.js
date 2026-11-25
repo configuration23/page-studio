@@ -322,6 +322,34 @@
 
   // --- загрузка списка страниц -------------------------------------------------
 
+  /** Какую страницу открыть: ?page=… из ссылки, иначе последнюю редактированную. */
+  function requestedSlug() {
+    try {
+      var fromUrl = new URLSearchParams(window.location.search).get('page');
+      if (fromUrl) return fromUrl;
+    } catch (err) {
+      /* старый браузер — обойдёмся без параметра */
+    }
+    try {
+      return localStorage.getItem('ps.page');
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function rememberPage(slug) {
+    try {
+      localStorage.setItem('ps.page', slug);
+    } catch (err) {
+      /* приватный режим — не беда */
+    }
+    try {
+      window.history.replaceState(null, '', '/admin?page=' + encodeURIComponent(slug));
+    } catch (err) {
+      /* без истории тоже проживём */
+    }
+  }
+
   function loadForms() {
     return api('/api/v1/admin/forms').then(function (data) {
       select.innerHTML = '';
@@ -331,7 +359,7 @@
         option.textContent = item.title + ' (' + item.slug + ')';
         select.appendChild(option);
       });
-      var wanted = state.slug || data.forms[0].slug;
+      var wanted = requestedSlug() || state.slug || data.forms[0].slug;
       if (!data.forms.some(function (f) { return f.slug === wanted; })) wanted = data.forms[0].slug;
       select.value = wanted;
       return loadForm(wanted);
@@ -341,6 +369,7 @@
   function loadForm(slug) {
     return api('/api/v1/admin/forms/' + slug).then(function (data) {
       state.slug = slug;
+      rememberPage(slug);
       state.form = data.form;
       state.selected = data.form.elements.length ? data.form.elements[0].id : null;
       state.dirty = false;
