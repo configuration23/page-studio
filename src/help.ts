@@ -206,6 +206,9 @@ function kindSection(kind: Kind): string {
     methods ? `<h3>Методы</h3><table><tr><th>что</th><th>метод</th><th>вызов</th></tr>${methods}</table>` : `<h3>Методы</h3><p>Элемент только показывает — методов нет.</p>`,
     write ? `<h3>Как записать</h3><pre>${esc(write)}</pre>` : '',
     pitfalls ? `<h3>Частые ошибки</h3><table>${pitfalls}</table>` : '',
+    `<p class="muted">Скрыть или отключить этот элемент из бэкенда:
+     <code>POST …/ui/&lt;id&gt;</code> — см.
+     <a href="#visibility">«Видимость и активность»</a>.</p>`,
     `</section>`,
   ]
     .filter(Boolean)
@@ -265,8 +268,28 @@ const COMMON = `# Справка портала
 
 Два уровня. Статические — в самой форме: у элемента «скрыт на странице» и «неактивен»,
 у страницы «скрыть из списка» (прямая ссылка работает). Динамические — из бэкенда:
-\`POST /api/v1/forms/<страница>/ui/<id>\` с \`{"hidden": true}\` или \`{"disabled": true}\`
-меняет **один** элемент, остальные не трогает; \`false\` возвращает как было.
+меняется **один** элемент, остальные не трогаются.
+
+\`\`\`bash
+# скрыть элемент
+curl -X POST "<портал>/api/v1/forms/<страница>/ui/<id>?sid=<sid>" \\
+  -H "Authorization: Bearer <PORTAL_TOKEN>" \\
+  -H "Content-Type: application/json" \\
+  -d '{"hidden": true}'
+
+# вернуть обратно
+curl -X POST "<портал>/api/v1/forms/<страница>/ui/<id>?sid=<sid>" \\
+  -H "Authorization: Bearer <PORTAL_TOKEN>" \\
+  -H "Content-Type: application/json" \\
+  -d '{"hidden": false}'
+\`\`\`
+
+\`disabled\` работает так же: элемент остаётся на месте, но серый и не реагирует — удобно
+показать поле, которое «пока нельзя». Прочитать текущее состояние сессии:
+\`GET <портал>/api/v1/forms/<страница>/ui?sid=<sid>\` → \`{"hidden":["a"],"disabled":["b"]}\`.
+
+Так делают сценарии «дополнительные поля по согласию»: бэкенд получил \`on_change\` от
+флажка и показал следующий блок — без перезагрузки страницы.
 
 ## Частые ошибки
 
@@ -313,6 +336,7 @@ export function guidePage(): string {
     .replace('<h2>Авторизация</h2>', '<h2 id="auth">Авторизация</h2>')
     .replace('<h2>Адреса</h2>', '<h2 id="api">Адреса</h2>')
     .replace('<h2>События и цели</h2>', '<h2 id="events">События и цели</h2>')
+    .replace('<h2>Видимость и активность</h2>', '<h2 id="visibility">Видимость и активность</h2>')
     .replace('<h2>Частые ошибки</h2>', '<h2 id="errors">Частые ошибки</h2>');
 
   return `<!DOCTYPE html>
@@ -333,6 +357,7 @@ export function guidePage(): string {
     <a href="#auth">Авторизация</a>
     <a href="#api">Адреса</a>
     <a href="#events">События и цели</a>
+    <a href="#visibility">Видимость и активность</a>
     <a href="#errors">Частые ошибки</a>
     <div class="group">Элементы</div>
     ${kinds}
