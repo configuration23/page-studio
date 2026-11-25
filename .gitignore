@@ -22,3 +22,5 @@ data/targets.yaml
 data/settings.yaml
 # Состояния страниц — живые данные стенда.
 data/page-state.json
+# Черновики страниц — рабочие файлы, не в git.
+data/forms/*.draft.yaml
