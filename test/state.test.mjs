@@ -57,6 +57,31 @@ test('неизвестное значение не записать', () => {
   assert.throws(() => store.set(form, 'sid00001', 'нет_такого', 1), /нет значения/);
 });
 
+test('новый элемент появляется у сессии, которая уже в памяти', () => {
+  const store = new StateStore(mkdtempSync(join(tmpdir(), 'ps-')));
+  const before = formSchema.parse({
+    slug: 'gen',
+    title: 'Тест',
+    elements: [{ id: 'prompt', kind: 'memo', x: 0, y: 0, w: 300, h: 80 }],
+  });
+  const after = formSchema.parse({
+    slug: 'gen',
+    title: 'Тест',
+    elements: [
+      { id: 'prompt', kind: 'memo', x: 0, y: 0, w: 300, h: 80 },
+      { id: 'status', kind: 'status', x: 0, y: 100, w: 200, h: 40 },
+    ],
+  });
+
+  // сессия создана до публикации нового элемента
+  store.set(before, 'sid00001', 'prompt', 'старое');
+
+  const values = store.values(after, 'sid00001');
+  assert.deepEqual(values.status, { state: 'idle', text: '' }, 'новый элемент должен появиться');
+  assert.doesNotThrow(() => store.set(after, 'sid00001', 'status', { state: 'running', text: 'идёт' }));
+  assert.deepEqual(store.values(after, 'sid00001').status, { state: 'running', text: 'идёт' });
+});
+
 test('новый элемент появляется у старой сессии, удалённый — исчезает', () => {
   const dir = mkdtempSync(join(tmpdir(), 'ps-'));
   const before = formSchema.parse({

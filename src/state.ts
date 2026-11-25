@@ -1,4 +1,4 @@
-﻿import { EventEmitter } from 'node:events';
+import { EventEmitter } from 'node:events';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Form } from './model.js';
@@ -110,10 +110,10 @@ export class StateStore {
       this.byForm.set(form.slug, sessions);
     }
     let values = sessions.get(sid);
+    const base = initial(form);
+
     if (!values) {
-      // Форма могла измениться с прошлого визита: новые элементы получают
-      // начальные значения, удалённые — исчезают.
-      const base = initial(form);
+      // Первый заход: берём снимок с диска, новые элементы получают начальные значения.
       const loaded = this.load(form.slug, sid);
       if (loaded) {
         for (const key of Object.keys(base)) {
@@ -122,7 +122,18 @@ export class StateStore {
       }
       values = base;
       sessions.set(sid, values);
+      return values;
     }
+
+    // Форма могла измениться, пока сессия жила в памяти: элемент добавили позже —
+    // иначе запись в него падала бы с «нет значения». Досоздаём и убираем лишние.
+    for (const [id, initialValue] of Object.entries(base)) {
+      if (!(id in values)) values[id] = initialValue;
+    }
+    for (const id of Object.keys(values)) {
+      if (id !== UI_KEY && !(id in base)) delete values[id];
+    }
+
     return values;
   }
 
