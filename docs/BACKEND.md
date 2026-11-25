@@ -84,6 +84,21 @@ curl -X POST "$PORTAL/api/v1/forms/generation/values/status?sid=$SID" \
   -d '{"value":{"state":"done","text":"готово"}}'
 ```
 
+### Состояние страницы (необязательно)
+
+Чтобы список страниц показывал «работает / лежит» ещё до открытия, бэкенд может
+помечать страницу целиком — это не привязано к посетителю:
+
+```bash
+curl -X POST "$PORTAL/api/v1/forms/generation/state" \
+  -H "authorization: Bearer $PORTAL_TOKEN" \
+  -H "content-type: application/json" \
+  -d '{"value":{"state":"done","text":"бэкенд на связи"}}'
+```
+
+`state` — `idle`, `queued`, `running`, `done`, `failed`. Читается без токена:
+`GET /api/v1/forms/<slug>/state`.
+
 **Подпись к картинке кодируйте.** `note` идёт в адресе, а сырые не-ASCII байты в
 строке запроса Node отклоняет ещё до приложения: снаружи это `400 Bad Request`, и в
 журнале портала запроса не будет — легко искать не там. В n8n:

@@ -10,6 +10,7 @@ import { draftFile, loadForms, publishedFile } from './forms.js';
 import { pushEvent } from './push.js';
 import { TargetStore } from './targets.js';
 import { SettingsStore } from './settings.js';
+import { PageStateStore, PAGE_STATES } from './pagestate.js';
 import { StateStore } from './state.js';
 import { ImageStore } from './store.js';
 import { CallLog } from './log.js';
@@ -34,12 +35,22 @@ const targets = new TargetStore(config.dataDir);
 /** Настройки портала: какая страница открывается на входе. */
 const settings = new SettingsStore(config.dataDir, process.env.DEFAULT_PAGE?.trim() || undefined);
 
-function indexItems(): Array<{ slug: string; title: string; lead?: string; elements: number }> {
+/** Состояние страницы целиком — для списка страниц. */
+const pageStates = new PageStateStore(config.dataDir);
+
+function indexItems(): Array<{
+  slug: string;
+  title: string;
+  lead?: string;
+  elements: number;
+  state: { state: string; text?: string; ts?: string };
+}> {
   return [...forms.values()].map((form) => ({
     slug: form.slug,
     title: form.title,
     lead: form.lead,
     elements: form.elements.length,
+    state: pageStates.get(form.slug),
   }));
 }
 const state = new StateStore(config.dataDir);
@@ -309,6 +320,34 @@ app.get('/', async (_req, reply) => {
 app.get('/pages', async (_req, reply) =>
   reply.type('text/html; charset=utf-8').send(renderIndex(indexItems())),
 );
+
+/** Список для обновления статусов на клиенте. */
+app.get('/api/v1/pages', async () => ({
+  pages: [...forms.values()].map((form) => ({
+    slug: form.slug,
+    title: form.title,
+    state: pageStates.get(form.slug),
+  })),
+}));
+
+app.get('/api/v1/forms/:slug/state', async (req) => {
+  const form = getForm((req.params as { slug: string }).slug);
+  return { value: pageStates.get(form.slug) };
+});
+
+app.post('/api/v1/forms/:slug/state', async (req, reply) => {
+  if (!authorized(req)) throw new HttpError(401, 'нужен токен портала');
+  const form = getForm((req.params as { slug: string }).slug);
+  const body = (req.body ?? {}) as { value?: { state?: unknown; text?: unknown } };
+  const state = String(body.value?.state ?? '');
+  if (!(PAGE_STATES as readonly string[]).includes(state)) {
+    throw new HttpError(400, `state: одно из ${PAGE_STATES.join(', ')}`);
+  }
+  const text = body.value?.text ? String(body.value.text) : undefined;
+  const value = pageStates.set(form.slug, state as (typeof PAGE_STATES)[number], text);
+  log.add({ kind: 'value', page: form.slug, name: `${form.slug}.state`, ok: true, note: state });
+  return reply.send({ value });
+});
 
 app.get('/health', async () => ({
   ok: true,
@@ -794,6 +833,7 @@ app.delete('/api/v1/admin/forms/:slug', async (req, reply) => {
   forms.delete(slug);
   drafts.delete(slug);
   state.removeForm(slug);
+  pageStates.remove(slug);
   log.add({ kind: 'value', page: slug, name: 'admin.delete', ok: true });
   return { ok: true, removed: slug };
 });

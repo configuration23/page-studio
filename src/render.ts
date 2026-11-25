@@ -111,23 +111,28 @@ function renderInner(el: Element, value: unknown, items: GalleryItem[]): string 
       const text = status.text || STATUS_TEXT[state] || STATUS_TEXT.idle;
       return `<div class="badge state-${escapeHtml(state)}"><i class="dot"></i><span class="txt">${escapeHtml(text)}</span></div>`;
     }
+    case 'onload':
+      return '';
     default:
       return '';
   }
 }
 
 function renderElement(el: Element, value: unknown, items: GalleryItem[]): string {
+  // триггер открытия на странице не виден: он только отправляет событие
+  const invisible = el.kind === 'onload' || el.hidden;
   const style = [
     `left:${el.x}px`,
     `top:${el.y}px`,
     `width:${el.w}px`,
     `height:${el.h}px`,
-    el.hidden ? 'display:none' : '',
+    invisible ? 'display:none' : '',
   ]
     .filter(Boolean)
     .join(';');
+  const onload = el.kind === 'onload' ? ' data-onload="1"' : '';
 
-  return `<div class="el k-${el.kind} ${sizeClass(el)}" data-id="${escapeHtml(el.id)}" data-kind="${el.kind}"${eventAttr(el)} style="${style}">${renderInner(el, value, items)}</div>`;
+  return `<div class="el k-${el.kind} ${sizeClass(el)}" data-id="${escapeHtml(el.id)}" data-kind="${el.kind}"${eventAttr(el)}${onload} style="${style}">${renderInner(el, value, items)}</div>`;
 }
 
 export type PageOptions = {
@@ -192,14 +197,38 @@ ${CLIENT}
 </html>`;
 }
 
-export function renderIndex(items: Array<{ slug: string; title: string; lead?: string; elements: number }>): string {
+const STATE_LABEL: Record<string, string> = {
+  idle: 'нет данных',
+  queued: 'в очереди',
+  running: 'в работе',
+  done: 'работает',
+  failed: 'ошибка',
+};
+
+/** Состояние страницы в списке: видно, что живо, ещё до открытия. */
+function stateBadge(state?: { state: string; text?: string }): string {
+  const name = state?.state ?? 'idle';
+  const text = state?.text || STATE_LABEL[name] || STATE_LABEL.idle;
+  return `<div class="card-state state-${escapeHtml(name)}"><i></i><span>${escapeHtml(text)}</span></div>`;
+}
+
+export function renderIndex(
+  items: Array<{
+    slug: string;
+    title: string;
+    lead?: string;
+    elements: number;
+    state?: { state: string; text?: string; ts?: string };
+  }>,
+): string {
   const cards = items
     .map(
-      (item) => `<a class="page" href="/p/${escapeHtml(item.slug)}">
+      (item) => `<a class="page" href="/p/${escapeHtml(item.slug)}" data-state-for="${escapeHtml(item.slug)}">
       <div class="slug">${escapeHtml(item.slug)}</div>
       <h2>${escapeHtml(item.title)}</h2>
       ${item.lead ? `<p>${escapeHtml(item.lead)}</p>` : ''}
       <div class="meta">${item.elements} элемент(ов)</div>
+      ${stateBadge(item.state)}
     </a>`,
     )
     .join('\n    ');
@@ -233,6 +262,12 @@ ${CSS}
 .page p { margin: 0 0 10px; color: #4b5563; font-size: 14px; }
 .page .slug { font: 600 11px/1 ui-monospace, Consolas, monospace; letter-spacing: 0.08em; text-transform: uppercase; color: #4f8cff; }
 .page .meta { font-size: 12px; color: #6b7280; }
+.card-state { display: flex; align-items: center; gap: 7px; margin-top: 10px; font-size: 12px; color: #6b7280; }
+.card-state i { width: 8px; height: 8px; border-radius: 50%; background: #9aa3ae; flex: none; }
+.card-state.state-done i { background: #2ea043; }
+.card-state.state-queued i,
+.card-state.state-running i { background: #4f8cff; }
+.card-state.state-failed i { background: #f85149; }
 .index .admin { margin-top: 28px; font-size: 13px; }
 .index .admin a { color: var(--muted); }
 </style>
@@ -247,6 +282,31 @@ ${CSS}
   </div>
   <div class="admin"><a href="/admin">админка — собрать страницу</a></div>
 </div>
+<script>
+(function () {
+  var LABEL = { idle: 'нет данных', queued: 'в очереди', running: 'в работе', done: 'работает', failed: 'ошибка' };
+  function paint(slug, state) {
+    var card = document.querySelector('[data-state-for="' + slug + '"]');
+    if (!card) return;
+    var box = card.querySelector('.card-state');
+    if (!box) return;
+    var name = (state && state.state) || 'idle';
+    box.className = 'card-state state-' + name;
+    var span = box.querySelector('span');
+    if (span) span.textContent = (state && state.text) || LABEL[name] || LABEL.idle;
+  }
+  function poll() {
+    fetch('/api/v1/pages')
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        (data.pages || []).forEach(function (page) { paint(page.slug, page.state); });
+      })
+      .catch(function () { /* список просто останется прежним */ });
+  }
+  poll();
+  setInterval(poll, 15000);
+})();
+</script>
 </body>
 </html>`;
 }

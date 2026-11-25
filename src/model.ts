@@ -12,6 +12,7 @@ export const KINDS = [
   'gallery',
   'list',
   'status',
+  'onload',
 ] as const;
 
 export type Kind = (typeof KINDS)[number];
@@ -34,6 +35,8 @@ export const EVENTS_OF: Partial<Record<Kind, readonly string[]>> = {
   combo: ['on_change'],
   check: ['on_change'],
   button: ['on_click'],
+  /** Невидимый триггер: событие уходит, как только страницу открыли. */
+  onload: ['on_open'],
 };
 
 export const propsSchema = z.object({

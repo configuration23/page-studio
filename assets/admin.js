@@ -81,6 +81,14 @@
       props: [],
       hint: 'состояние обработки',
       detail: 'Бейдж состояния: ожидание, в очереди, рисует, готово, ошибка. Бэкенд пишет его запросом post_<id> с полями state и text. Страница обновляется сама, перезагружать не нужно.'
+    },
+    {
+      kind: 'onload',
+      name: 'Открытие',
+      ic: '▶',
+      props: [],
+      hint: 'событие при открытии страницы',
+      detail: 'Невидимый на странице триггер: как только посетитель открыл страницу, портал отправляет на выбранную цель событие on_open_<id> со снимком формы. Нужен для страниц-дашбордов: открыл — бэкенд сразу узнал и записал статусы. В дизайнере виден рамкой, на странице его нет.'
     }
   ];
 
@@ -89,7 +97,8 @@
     memo: ['on_change'],
     combo: ['on_change'],
     check: ['on_change'],
-    button: ['on_click']
+    button: ['on_click'],
+    onload: ['on_open']
   };
 
   var VALUE_KINDS = ['edit', 'memo', 'combo', 'check', 'image', 'gallery', 'status'];
@@ -386,6 +395,8 @@
         return label + '<div class="box" style="display:block;text-align:left">• строка<br>• строка<br>• строка</div>';
       case 'status':
         return '<div class="box badgebox">◉ статус</div>';
+      case 'onload':
+        return '<div class="box" style="border-style:dashed;background:transparent">▶ при открытии</div>';
       default:
         return '<div class="box">' + el.kind + '</div>';
     }
@@ -587,6 +598,8 @@
         return { w: 140, h: cap + 60 };
       case 'status':
         return { w: 110, h: 32 };
+      case 'onload':
+        return { w: 160, h: 32 };
       default:
         return { w: 64, h: 24 };
     }
@@ -600,6 +613,7 @@
     if (kind === 'label') return { w: 400, h: 48 };
     if (kind === 'status') return { w: 220, h: 32 };
     if (kind === 'check') return { w: 240, h: 32 };
+    if (kind === 'onload') return { w: 220, h: 40 };
     return { w: 320, h: 40 };
   }
 
@@ -618,7 +632,7 @@
       y: y,
       w: size.w,
       h: size.h,
-      label: kind === 'label' ? '' : KINDS.filter(function (k) { return k.kind === kind; })[0].name,
+      label: kind === 'label' || kind === 'onload' ? '' : KINDS.filter(function (k) { return k.kind === kind; })[0].name,
       hidden: false,
       props: defaultProps(kind)
     };

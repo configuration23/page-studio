@@ -209,6 +209,14 @@
     });
   });
 
+  // Триггеры открытия: страницу открыли — сразу сообщаем бэкенду.
+  Array.prototype.forEach.call(document.querySelectorAll('.el[data-onload]'), function (node) {
+    var id = node.getAttribute('data-id');
+    post('/events/' + id, { values: collectValues() }).catch(function () {
+      toast('Портал недоступен', true);
+    });
+  });
+
   if (window.EventSource) {
     var source = new EventSource('/api/v1/forms/' + PAGE + '/stream');
     source.onmessage = function (event) {

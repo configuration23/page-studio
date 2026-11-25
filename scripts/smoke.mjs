@@ -50,6 +50,7 @@ const TEST_FORM = {
     { id: 'status', kind: 'status', x: 600, y: 110, w: 260, h: 40 },
     { id: 'image', kind: 'image', x: 40, y: 190, w: 520, h: 360, label: 'Результат' },
     { id: 'gallery', kind: 'gallery', x: 600, y: 190, w: 300, h: 360, label: 'История' },
+    { id: 'open', kind: 'onload', x: 40, y: 560, w: 220, h: 32, target: 'demo' },
   ],
 };
 
@@ -163,6 +164,31 @@ async function main() {
 
     const draftClosed = await fetch(`${BASE}/p/${PAGE}?draft=1`, { redirect: 'manual' });
     check('предпросмотр черновика закрыт', draftClosed.status === 303);
+
+    // --- триггер открытия и состояние страницы --------------------------------
+    check('манифест: метод открытия страницы', methods.includes(`${PAGE}.on_open_open`));
+    check('на странице есть невидимый триггер', pageHtml.includes('data-onload="1"'));
+
+    const noTokenState = await api(`/api/v1/forms/${PAGE}/state`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ value: { state: 'done' } }),
+    });
+    check('состояние страницы без токена не пишется', noTokenState.res.status === 401, `код ${noTokenState.res.status}`);
+
+    const setState = await api(`/api/v1/forms/${PAGE}/state`, {
+      method: 'POST',
+      headers: json,
+      body: JSON.stringify({ value: { state: 'done', text: 'работает' } }),
+    });
+    check('состояние страницы записывается', setState.res.ok && setState.body.value?.state === 'done');
+
+    const readState = await api(`/api/v1/forms/${PAGE}/state`);
+    check('состояние страницы читается', readState.body.value?.state === 'done');
+
+    const pagesApi = await api('/api/v1/pages');
+    const listed = (pagesApi.body.pages ?? []).find((item) => item.slug === PAGE);
+    check('список страниц показывает состояние', listed?.state?.state === 'done', JSON.stringify(listed?.state));
 
     // --- значения и событие --------------------------------------------------
     const sid = randomBytes(6).toString('hex');
