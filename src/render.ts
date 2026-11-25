@@ -45,6 +45,60 @@ function eventAttr(el: Element): string {
   return events && events.length > 0 ? ` data-event="${events[0]}"` : '';
 }
 
+const MARKUP_LINK = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
+const MARKUP_BOLD = /\*\*([^*]+)\*\*/g;
+const MARKUP_EM = /(^|[^*])\*([^*]+)\*/g;
+const MARKUP_CODE = /`([^`]+)`/g;
+
+/**
+ * Минимальный маркдаун. Вход уже экранирован, поэтому сырой HTML не проходит:
+ * можно только то, что перечислено ниже. Ссылки — лишь http(s).
+ */
+function markupInline(text: string): string {
+  return text
+    .replace(MARKUP_CODE, '<code>$1</code>')
+    .replace(MARKUP_BOLD, '<strong>$1</strong>')
+    .replace(MARKUP_EM, '$1<em>$2</em>')
+    .replace(MARKUP_LINK, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+}
+
+function markupToHtml(source: string): string {
+  const lines = escapeHtml(source).split('\n');
+  const out: string[] = [];
+  let list: string[] | null = null;
+  let inCode = false;
+
+  const flushList = (): void => {
+    if (!list) return;
+    out.push(`<ul>${list.map((item) => `<li>${item}</li>`).join('')}</ul>`);
+    list = null;
+  };
+
+  for (const line of lines) {
+    if (line.trim() === '```') {
+      flushList();
+      out.push(inCode ? '</code></pre>' : '<pre><code>');
+      inCode = !inCode;
+      continue;
+    }
+    if (inCode) {
+      out.push(line);
+      continue;
+    }
+    const bullet = /^\s*[-*]\s+(.*)$/.exec(line);
+    if (bullet) {
+      if (!list) list = [];
+      list.push(markupInline(bullet[1] ?? ''));
+      continue;
+    }
+    flushList();
+    out.push(markupInline(line));
+  }
+  flushList();
+  if (inCode) out.push('</code></pre>');
+  return out.join('\n');
+}
+
 function renderInner(el: Element, value: unknown, items: GalleryItem[]): string {
   const p = el.props;
   const label = el.label ? `<div class="cap">${escapeHtml(el.label)}</div>` : '';
@@ -54,7 +108,9 @@ function renderInner(el: Element, value: unknown, items: GalleryItem[]): string 
       // если у текста включён обмен, показываем присланное значение, иначе — данные из настроек
       const shown =
         value !== undefined && value !== null ? String(value) : (p.text ?? el.label ?? '');
-      return `<div class="txt">${escapeHtml(shown)}</div>`;
+      const align = p.align ?? 'left';
+      const body = p.format === 'markdown' ? markupToHtml(shown) : escapeHtml(shown);
+      return `<div class="txt" style="text-align:${align}">${body}</div>`;
     }
     case 'edit': {
       const max = p.max ? ` maxlength="${p.max}"` : '';
@@ -235,6 +291,7 @@ export function renderIndex(
     elements: number;
     state?: { state: string; text?: string; ts?: string };
   }>,
+  view: 'cards' | 'rows' | 'compact' = 'cards',
 ): string {
   const cards = items
     .map(
@@ -285,10 +342,35 @@ ${CSS}
 .card-state.state-failed i { background: #f85149; }
 .index .admin { margin-top: 28px; font-size: 13px; }
 .index .admin a { color: var(--muted); }
+
+/* вид списка: строки */
+.index.view-rows .list { gap: 8px; }
+.index.view-rows .page { padding: 12px 16px; border-radius: 10px; }
+.index.view-rows .page h2 { font-size: 16px; margin: 2px 0 0; }
+.index.view-rows .page p { display: none; }
+.index.view-rows .page .slug { font-size: 10px; }
+.index.view-rows .card-state { margin-top: 6px; }
+
+/* вид списка: компактный */
+.index.view-compact .list { gap: 4px; }
+.index.view-compact .page {
+  padding: 8px 12px;
+  border-radius: 8px;
+  box-shadow: none;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.index.view-compact .page:hover { transform: none; box-shadow: none; background: #eef1f6; }
+.index.view-compact .page .slug,
+.index.view-compact .page p { display: none; }
+.index.view-compact .page h2 { font-size: 14px; margin: 0; }
+.index.view-compact .page .meta { margin-left: auto; }
+.index.view-compact .card-state { margin-top: 0; margin-left: auto; }
 </style>
 </head>
 <body>
-<div class="index">
+<div class="index view-${view}">
   <span class="tag">page-studio</span>
   <h1>Страницы</h1>
   <p class="sub">Портал-конструктор: элементы — это методы, обвязка — в бэкенде.</p>

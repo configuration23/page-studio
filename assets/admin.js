@@ -6,7 +6,7 @@
       kind: 'label',
       name: 'Текст',
       ic: 'T',
-      props: ['text', 'size', 'send'],
+      props: ['text', 'size', 'send', 'align', 'format'],
       hint: 'текст или данные от бэкенда',
       detail: 'Блок текста: заголовок, пояснение, длинная инструкция. «Данные» — многострочное поле, переносы сохраняются, длинный текст прокручивается внутри блока. По умолчанию это просто надпись: метода у неё нет, бэкенд её не видит. Галочка «обмен» включает методы <страница>.<id> и <страница>.post_<id>: текст можно прочитать, прислать из бэкенда и он попадает в снимок формы при событиях. Пользователь текст не редактирует — для ввода есть «Абзац».'
     },
@@ -234,7 +234,7 @@
     showGuideY(null);
   }
 
-  var state = { slug: null, form: null, selected: null, dirty: false, dragging: false, hasDraft: false, targets: [], defaultPage: '' };
+  var state = { slug: null, form: null, selected: null, dirty: false, dragging: false, hasDraft: false, targets: [], defaultPage: '', listView: 'cards' };
   var history = [];
   var HISTORY_LIMIT = 20;
   var armSnapshot = true;
@@ -413,7 +413,11 @@
     var label = el.label ? '<div class="cap">' + escapeHtml(el.label) + '</div>' : '';
     switch (el.kind) {
       case 'label':
-        return '<div class="box">' + escapeHtml(p.text || el.label || 'Текст') + '</div>';
+        return (
+          '<div class="box" style="text-align:' + (p.align || 'left') + '">' +
+          escapeHtml(p.text || el.label || 'Текст') +
+          '</div>'
+        );
       case 'edit':
         return label + '<div class="box">' + escapeHtml(p.placeholder || 'строка ввода') + '</div>';
       case 'memo':
@@ -784,6 +788,37 @@
             '> отдавать текст бэкенду</label>'
         );
       }
+      if (props.indexOf('align') >= 0) {
+        html += row(
+          'выравн.',
+          '<select data-prop="p:align">' +
+            [
+              ['left', 'слева'],
+              ['center', 'по центру'],
+              ['right', 'справа'],
+            ]
+              .map(function (pair) {
+                return '<option value="' + pair[0] + '"' + ((el.props.align || 'left') === pair[0] ? ' selected' : '') + '>' + pair[1] + '</option>';
+              })
+              .join('') +
+            '</select>'
+        );
+      }
+      if (props.indexOf('format') >= 0) {
+        html += row(
+          'формат',
+          '<select data-prop="p:format">' +
+            [
+              ['text', 'обычный текст'],
+              ['markdown', 'маркдаун'],
+            ]
+              .map(function (pair) {
+                return '<option value="' + pair[0] + '"' + ((el.props.format || 'text') === pair[0] ? ' selected' : '') + '>' + pair[1] + '</option>';
+              })
+              .join('') +
+            '</select>'
+        );
+      }
       if (props.indexOf('size') >= 0) {
         html += row(
           'кегль',
@@ -933,6 +968,7 @@
     $('#page-width').value = state.form.canvas.width;
     $('#page-height').value = state.form.canvas.height || '';
     $('#page-default').checked = state.defaultPage === state.slug;
+    $('#page-list-view').value = state.listView || 'cards';
     pageModal.hidden = false;
     $('#page-title').focus();
   });
@@ -1003,6 +1039,21 @@
         })
         .catch(function (err) {
           setStatus('не удалось снять страницу по умолчанию: ' + err.message, 'err');
+        });
+    }
+
+    var view = $('#page-list-view').value;
+    if (view !== state.listView) {
+      api('/api/v1/admin/settings', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ listView: view })
+      })
+        .then(function () {
+          state.listView = view;
+        })
+        .catch(function (err) {
+          setStatus('не удалось сменить вид списка: ' + err.message, 'err');
         });
     }
 
@@ -1508,6 +1559,7 @@
   api('/api/v1/admin/settings')
     .then(function (data) {
       state.defaultPage = data.defaultPage || '';
+      state.listView = data.listView || 'cards';
     })
     .catch(function () {
       // без настроек живём: галочка просто окажется снятой

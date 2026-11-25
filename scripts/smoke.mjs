@@ -51,7 +51,7 @@ const TEST_FORM = {
     { id: 'image', kind: 'image', x: 40, y: 190, w: 520, h: 360, label: 'Результат', props: { zoom: true, newWindow: true } },
     { id: 'gallery', kind: 'gallery', x: 600, y: 190, w: 300, h: 360, label: 'История' },
     { id: 'open', kind: 'onload', x: 40, y: 560, w: 220, h: 32, target: 'demo' },
-    { id: 'doc', kind: 'label', x: 40, y: 604, w: 880, h: 140, props: { text: 'Начальный текст', send: true } },
+    { id: 'doc', kind: 'label', x: 40, y: 604, w: 880, h: 140, props: { text: 'Начальный **текст**', send: true, format: 'markdown', align: 'center' } },
   ],
 };
 
@@ -228,6 +228,29 @@ async function main() {
 
     const pageWithDoc = await api(`/p/${PAGE}?sid=${sid}`);
     check('текст с бэкенда виден на странице', String(pageWithDoc.body).includes('строка текста с переносами.'));
+
+    // оформление текста: маркдаун и выравнивание
+    const styled = await api(`/p/${PAGE}?sid=${sid}`);
+    check('маркдаун превращается в разметку', String(styled.body).includes('<strong>текст</strong>'));
+    check('выравнивание попадает в разметку', String(styled.body).includes('text-align:center'));
+
+    // вид списка страниц: меняем, проверяем и возвращаем как было
+    const settingsBefore = await (await fetch(`${BASE}/api/v1/admin/settings`, { headers: { cookie: session } })).json();
+    const viewChanged = await fetch(`${BASE}/api/v1/admin/settings`, {
+      method: 'PUT',
+      headers: { cookie: session, 'content-type': 'application/json' },
+      body: JSON.stringify({ listView: 'rows' }),
+    });
+    const rowsPage = await api('/pages');
+    check(
+      'вид списка применяется',
+      viewChanged.ok && String(rowsPage.body).includes('view-rows'),
+    );
+    await fetch(`${BASE}/api/v1/admin/settings`, {
+      method: 'PUT',
+      headers: { cookie: session, 'content-type': 'application/json' },
+      body: JSON.stringify({ listView: settingsBefore.listView || 'cards' }),
+    });
 
     const event = await api(`/api/v1/forms/${PAGE}/events/push?sid=${sid}`, {
       method: 'POST',

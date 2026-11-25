@@ -320,12 +320,12 @@ app.setErrorHandler((rawError: unknown, _req, reply) => {
 app.get('/', async (_req, reply) => {
   const { defaultPage } = settings.get();
   if (defaultPage && forms.has(defaultPage)) return reply.redirect(`/p/${defaultPage}`, 302);
-  return reply.type('text/html; charset=utf-8').send(renderIndex(indexItems()));
+  return reply.type('text/html; charset=utf-8').send(renderIndex(indexItems(), settings.get().listView ?? 'cards'));
 });
 
 /** Список страниц — отдельный адрес, чтобы он не пропадал при странице по умолчанию. */
 app.get('/pages', async (_req, reply) =>
-  reply.type('text/html; charset=utf-8').send(renderIndex(indexItems())),
+  reply.type('text/html; charset=utf-8').send(renderIndex(indexItems(), settings.get().listView ?? 'cards')),
 );
 
 /** Список для обновления статусов на клиенте. */
@@ -850,17 +850,36 @@ app.delete('/api/v1/admin/forms/:slug', async (req, reply) => {
 app.get('/api/v1/admin/settings', async (req, reply) => {
   requireAdminApi(req, reply);
   // токен записи нужен бэкенду; показываем его только вошедшему админу
-  return { portalToken: config.token, defaultPage: settings.get().defaultPage ?? '' };
+  return {
+    portalToken: config.token,
+    defaultPage: settings.get().defaultPage ?? '',
+    listView: settings.get().listView ?? 'cards',
+  };
 });
 
 app.put('/api/v1/admin/settings', async (req, reply) => {
   requireAdminApi(req, reply);
-  const body = (req.body ?? {}) as { defaultPage?: unknown };
-  const slug = String(body.defaultPage ?? '').trim();
-  if (slug && !forms.has(slug)) throw new HttpError(400, `страницы «${slug}» нет`);
-  settings.setDefaultPage(slug);
-  log.add({ kind: 'value', page: 'admin', name: 'admin.settings', ok: true, note: slug || 'список' });
-  return { ok: true, defaultPage: settings.get().defaultPage ?? '' };
+  const body = (req.body ?? {}) as { defaultPage?: unknown; listView?: unknown };
+
+  // меняем только то, что пришло: иначе правка вида списка сбрасывала бы страницу по умолчанию
+  if ('defaultPage' in body) {
+    const slug = String(body.defaultPage ?? '').trim();
+    if (slug && !forms.has(slug)) throw new HttpError(400, `страницы «${slug}» нет`);
+    settings.setDefaultPage(slug);
+  }
+  if ('listView' in body) {
+    const listView = String(body.listView ?? '').trim();
+    if (listView !== 'cards' && listView !== 'rows' && listView !== 'compact') {
+      throw new HttpError(400, 'вид списка: cards, rows или compact');
+    }
+    settings.setListView(listView);
+  }
+  log.add({ kind: 'value', page: 'admin', name: 'admin.settings', ok: true, note: JSON.stringify(body) });
+  return {
+    ok: true,
+    defaultPage: settings.get().defaultPage ?? '',
+    listView: settings.get().listView ?? 'cards',
+  };
 });
 
 app.get('/api/v1/admin/tokens', async (req, reply) => {

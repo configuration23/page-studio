@@ -2,9 +2,13 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import YAML from 'yaml';
 
+export type ListView = 'cards' | 'rows' | 'compact';
+
 export type Settings = {
   /** Страница, которая открывается на входе в портал. Пусто — показываем список. */
   defaultPage?: string;
+  /** Как показывать список страниц: плитка, строки или компактный список. */
+  listView?: ListView;
 };
 
 /** Настройки портала, которые не относятся к отдельной странице. */
@@ -45,6 +49,11 @@ export class SettingsStore {
   setDefaultPage(slug: string): void {
     if (slug) this.data.defaultPage = slug;
     else delete this.data.defaultPage;
+    this.save();
+  }
+
+  setListView(view: ListView): void {
+    this.data.listView = view;
     this.save();
   }
 }

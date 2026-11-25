@@ -43,8 +43,10 @@ export const propsSchema = z.object({
   text: z.string().max(20000).optional(),
   /** Текст участвует в обмене: у элемента появляются методы get/post. */
   send: z.boolean().optional(),
-  /** Будущий формат отображения; пока всё показывается как обычный текст. */
+  /** Формат отображения: обычный текст или минимальный маркдаун. */
   format: z.enum(['text', 'markdown']).optional(),
+  /** Выравнивание текста внутри блока. */
+  align: z.enum(['left', 'center', 'right']).optional(),
   size: z.enum(['s', 'm', 'l', 'xl']).optional(),
   placeholder: z.string().max(200).optional(),
   value: z.string().max(2000).optional(),

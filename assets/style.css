@@ -120,6 +120,26 @@ select.inp { min-height: 32px; }
 .btn.ghost { background: #e6ebf3; color: #1d2530; }
 
 .txt { white-space: pre-wrap; }
+/* минимальный маркдаун внутри «Текста» */
+.txt ul { margin: 6px 0; padding-left: 20px; }
+.txt li { margin: 2px 0; }
+.txt pre {
+  margin: 8px 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #0f141c;
+  color: #e6edf3;
+  overflow: auto;
+}
+.txt code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: rgba(15, 20, 28, 0.08);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.94em;
+}
+.txt pre code { background: none; padding: 0; }
+.txt a { color: var(--accent); }
 /* длинный текст не вылезает из элемента: внутри блока своя прокрутка */
 .el.k-label { overflow: hidden; }
 .el.k-label .txt {
