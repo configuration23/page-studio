@@ -5,7 +5,7 @@
 чтение, событие, запись. Портал не знает, что за ним: генератор картинок, очередь,
 база или скрипт. Он хранит состояние и показывает то, что в него положили.
 
-Сейчас в примерах — n8n и ComfyUI, но это только пример. Подойдёт FastAPI,
+Сейчас в примерах — n8n и ComfyUI, но подойдёт FastAPI,
 Go-сервис, PHP, Make, cron с curl: контракт от инструмента не зависит.
 
 [![ci](https://github.com/configuration23/page-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/configuration23/page-studio/actions/workflows/ci.yml)
