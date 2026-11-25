@@ -354,6 +354,43 @@ ${CSS}
 .index .admin { margin-top: 28px; font-size: 13px; }
 .index .admin a { color: var(--muted); }
 
+/* вид списка: плитка — сетка квадратов, а не колонка широких строк */
+.index.view-cards .list {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.index.view-cards .page {
+  display: flex;
+  flex-direction: column;
+  aspect-ratio: 1 / 1;
+  padding: 16px 18px;
+  overflow: hidden;
+}
+.index.view-cards .page h2 {
+  font-size: 17px;
+  margin: 2px 0 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.index.view-cards .page p {
+  margin: 0 0 10px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 13px;
+}
+.index.view-cards .card-state { margin-top: auto; }
+@media (max-width: 880px) {
+  .index.view-cards .list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .index.view-cards .list { grid-template-columns: 1fr; }
+  .index.view-cards .page { aspect-ratio: auto; min-height: 170px; }
+}
+
 /* вид списка: строки */
 .index.view-rows .list { gap: 8px; }
 .index.view-rows .page { padding: 12px 16px; border-radius: 10px; }
