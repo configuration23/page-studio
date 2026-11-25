@@ -208,7 +208,8 @@ function isAdmin(req: FastifyRequest): boolean {
  */
 function requireAdminPage(req: FastifyRequest, reply: FastifyReply): boolean {
   if (adminSession(req)) return true;
-  const next = encodeURIComponent(req.url.split('?')[0] === '/admin' ? '/admin' : req.url);
+  // возвращаемся ровно туда, куда шли, вместе с параметрами (?page=…)
+  const next = encodeURIComponent(req.url || '/admin');
   reply.redirect(`/admin/login?next=${next}`, 303);
   return false;
 }
