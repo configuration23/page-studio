@@ -292,7 +292,11 @@ export function renderIndex(
     state?: { state: string; text?: string; ts?: string };
   }>,
   view: 'cards' | 'rows' | 'compact' = 'cards',
+  heading: { title?: string; lead?: string } = {},
 ): string {
+  const indexTitle = heading.title || 'Страницы';
+  const indexLead =
+    heading.lead || 'Портал-конструктор: элементы — это методы, обвязка — в бэкенде.';
   const cards = items
     .map(
       (item) => `<a class="page" href="/p/${escapeHtml(item.slug)}" data-state-for="${escapeHtml(item.slug)}">
@@ -372,8 +376,8 @@ ${CSS}
 <body>
 <div class="index view-${view}">
   <span class="tag">page-studio</span>
-  <h1>Страницы</h1>
-  <p class="sub">Портал-конструктор: элементы — это методы, обвязка — в бэкенде.</p>
+  <h1>${escapeHtml(indexTitle)}</h1>
+  <p class="sub">${escapeHtml(indexLead)}</p>
   <div class="list">
     ${cards}
   </div>

@@ -234,7 +234,7 @@
     showGuideY(null);
   }
 
-  var state = { slug: null, form: null, selected: null, dirty: false, dragging: false, hasDraft: false, targets: [], defaultPage: '', listView: 'cards' };
+  var state = { slug: null, form: null, selected: null, dirty: false, dragging: false, hasDraft: false, targets: [], defaultPage: '', listView: 'cards', indexTitle: '', indexLead: '' };
   var history = [];
   var HISTORY_LIMIT = 20;
   var armSnapshot = true;
@@ -969,6 +969,8 @@
     $('#page-height').value = state.form.canvas.height || '';
     $('#page-default').checked = state.defaultPage === state.slug;
     $('#page-list-view').value = state.listView || 'cards';
+    $('#index-title').value = state.indexTitle;
+    $('#index-lead').value = state.indexLead;
     pageModal.hidden = false;
     $('#page-title').focus();
   });
@@ -1054,6 +1056,24 @@
         })
         .catch(function (err) {
           setStatus('не удалось сменить вид списка: ' + err.message, 'err');
+        });
+    }
+
+    var indexTitle = $('#index-title').value.trim();
+    var indexLead = $('#index-lead').value.trim();
+    if (indexTitle !== state.indexTitle || indexLead !== state.indexLead) {
+      api('/api/v1/admin/settings', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ indexTitle: indexTitle, indexLead: indexLead })
+      })
+        .then(function () {
+          state.indexTitle = indexTitle;
+          state.indexLead = indexLead;
+          setStatus('заголовок списка обновлён', 'ok');
+        })
+        .catch(function (err) {
+          setStatus('не удалось сохранить заголовок списка: ' + err.message, 'err');
         });
     }
 
@@ -1560,6 +1580,8 @@
     .then(function (data) {
       state.defaultPage = data.defaultPage || '';
       state.listView = data.listView || 'cards';
+      state.indexTitle = data.indexTitle || '';
+      state.indexLead = data.indexLead || '';
     })
     .catch(function () {
       // без настроек живём: галочка просто окажется снятой

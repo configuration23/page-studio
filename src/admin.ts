@@ -136,6 +136,9 @@ export function renderAdmin(): string {
     <p class="modal-hint">Пустая высота — страница по содержимому. Заданная — фиксированная; элемент ниже границы подсвечивается на канвасе.</p>
     <label class="check-row"><input type="checkbox" id="page-default"> открывать при входе на портал</label>
     <p class="modal-hint">Тогда корень портала ведёт сразу на эту страницу. Список страниц остаётся по адресу <code>/pages</code>.</p>
+    <h4 class="modal-section">Портал</h4>
+    <label>Заголовок списка<input id="index-title" autocomplete="off" placeholder="Страницы"></label>
+    <label>Подпись списка<input id="index-lead" autocomplete="off" placeholder="короткое описание портала"></label>
     <label>Список страниц
       <select id="page-list-view">
         <option value="cards">плитка</option>
@@ -143,7 +146,7 @@ export function renderAdmin(): string {
         <option value="compact">компактный список</option>
       </select>
     </label>
-    <p class="modal-hint">Как показывать <code>/pages</code> всем посетителям. Настройка общая для портала.</p>
+    <p class="modal-hint">Как показывать <code>/pages</code> всем посетителям. Настройки ниже — общие для портала, не для этой страницы.</p>
     <div class="modal-actions">
       <button class="btn danger" id="delete-page" style="margin-right:auto">Удалить страницу</button>
       <button class="btn" id="page-cancel">Отмена</button>

@@ -9,6 +9,10 @@ export type Settings = {
   defaultPage?: string;
   /** Как показывать список страниц: плитка, строки или компактный список. */
   listView?: ListView;
+  /** Заголовок списка страниц. */
+  indexTitle?: string;
+  /** Подпись под заголовком списка. */
+  indexLead?: string;
 };
 
 /** Настройки портала, которые не относятся к отдельной странице. */
@@ -54,6 +58,14 @@ export class SettingsStore {
 
   setListView(view: ListView): void {
     this.data.listView = view;
+    this.save();
+  }
+
+  setIndexText(title: string, lead: string): void {
+    if (title) this.data.indexTitle = title.slice(0, 120);
+    else delete this.data.indexTitle;
+    if (lead) this.data.indexLead = lead.slice(0, 300);
+    else delete this.data.indexLead;
     this.save();
   }
 }

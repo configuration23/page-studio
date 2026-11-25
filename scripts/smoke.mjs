@@ -239,17 +239,19 @@ async function main() {
     const viewChanged = await fetch(`${BASE}/api/v1/admin/settings`, {
       method: 'PUT',
       headers: { cookie: session, 'content-type': 'application/json' },
-      body: JSON.stringify({ listView: 'rows' }),
+      body: JSON.stringify({ listView: 'rows', indexTitle: 'Смоук-список' }),
     });
     const rowsPage = await api('/pages');
-    check(
-      'вид списка применяется',
-      viewChanged.ok && String(rowsPage.body).includes('view-rows'),
-    );
+    check('вид списка применяется', viewChanged.ok && String(rowsPage.body).includes('view-rows'));
+    check('заголовок списка меняется', String(rowsPage.body).includes('Смоук-список'));
     await fetch(`${BASE}/api/v1/admin/settings`, {
       method: 'PUT',
       headers: { cookie: session, 'content-type': 'application/json' },
-      body: JSON.stringify({ listView: settingsBefore.listView || 'cards' }),
+      body: JSON.stringify({
+        listView: settingsBefore.listView || 'cards',
+        indexTitle: settingsBefore.indexTitle || '',
+        indexLead: settingsBefore.indexLead || '',
+      }),
     });
 
     const event = await api(`/api/v1/forms/${PAGE}/events/push?sid=${sid}`, {

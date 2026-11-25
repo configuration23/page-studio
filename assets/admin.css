@@ -358,6 +358,15 @@ main {
   outline: none;
 }
 .modal-box input:focus { border-color: var(--accent); }
+.modal-section {
+  margin: 18px 0 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
 .modal-box input::placeholder { color: #6b7787; opacity: 1; }
 .modal-hint { color: var(--muted); font-size: 12px; margin: 4px 0 14px; }
 .modal-hint code { color: #9ec1ff; }

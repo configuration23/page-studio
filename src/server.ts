@@ -1,4 +1,4 @@
-import { createReadStream } from 'node:fs';
+﻿import { createReadStream } from 'node:fs';
 import { readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { parse as parseQuery } from 'node:querystring';
@@ -37,6 +37,11 @@ const settings = new SettingsStore(config.dataDir, process.env.DEFAULT_PAGE?.tri
 
 /** Состояние страницы целиком — для списка страниц. */
 const pageStates = new PageStateStore(config.dataDir);
+
+function indexHeading(): { title?: string; lead?: string } {
+  const { indexTitle, indexLead } = settings.get();
+  return { title: indexTitle, lead: indexLead };
+}
 
 function indexItems(): Array<{
   slug: string;
@@ -320,12 +325,12 @@ app.setErrorHandler((rawError: unknown, _req, reply) => {
 app.get('/', async (_req, reply) => {
   const { defaultPage } = settings.get();
   if (defaultPage && forms.has(defaultPage)) return reply.redirect(`/p/${defaultPage}`, 302);
-  return reply.type('text/html; charset=utf-8').send(renderIndex(indexItems(), settings.get().listView ?? 'cards'));
+  return reply.type('text/html; charset=utf-8').send(renderIndex(indexItems(), settings.get().listView ?? 'cards', indexHeading()));
 });
 
 /** Список страниц — отдельный адрес, чтобы он не пропадал при странице по умолчанию. */
 app.get('/pages', async (_req, reply) =>
-  reply.type('text/html; charset=utf-8').send(renderIndex(indexItems(), settings.get().listView ?? 'cards')),
+  reply.type('text/html; charset=utf-8').send(renderIndex(indexItems(), settings.get().listView ?? 'cards', indexHeading())),
 );
 
 /** Список для обновления статусов на клиенте. */
@@ -854,18 +859,23 @@ app.get('/api/v1/admin/settings', async (req, reply) => {
     portalToken: config.token,
     defaultPage: settings.get().defaultPage ?? '',
     listView: settings.get().listView ?? 'cards',
+    indexTitle: settings.get().indexTitle ?? '',
+    indexLead: settings.get().indexLead ?? '',
   };
 });
 
 app.put('/api/v1/admin/settings', async (req, reply) => {
   requireAdminApi(req, reply);
-  const body = (req.body ?? {}) as { defaultPage?: unknown; listView?: unknown };
+  const body = (req.body ?? {}) as { defaultPage?: unknown; listView?: unknown; indexTitle?: unknown; indexLead?: unknown };
 
   // меняем только то, что пришло: иначе правка вида списка сбрасывала бы страницу по умолчанию
   if ('defaultPage' in body) {
     const slug = String(body.defaultPage ?? '').trim();
     if (slug && !forms.has(slug)) throw new HttpError(400, `страницы «${slug}» нет`);
     settings.setDefaultPage(slug);
+  }
+  if ('indexTitle' in body || 'indexLead' in body) {
+    settings.setIndexText(String(body.indexTitle ?? ''), String(body.indexLead ?? ''));
   }
   if ('listView' in body) {
     const listView = String(body.listView ?? '').trim();
@@ -879,6 +889,8 @@ app.put('/api/v1/admin/settings', async (req, reply) => {
     ok: true,
     defaultPage: settings.get().defaultPage ?? '',
     listView: settings.get().listView ?? 'cards',
+    indexTitle: settings.get().indexTitle ?? '',
+    indexLead: settings.get().indexLead ?? '',
   };
 });
 
