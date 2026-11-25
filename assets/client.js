@@ -217,6 +217,63 @@
     });
   });
 
+  // Лайтбокс: картинка поверх страницы. Если включено «новое окно» —
+  // клик по картинке внутри лайтбокса открывает её отдельным окном.
+  var lightbox = null;
+
+  function closeLightbox() {
+    if (!lightbox) return;
+    lightbox.remove();
+    lightbox = null;
+    document.body.style.overflow = '';
+    document.removeEventListener('keydown', onLightboxKey);
+  }
+
+  function onLightboxKey(event) {
+    if (event.key === 'Escape') closeLightbox();
+  }
+
+  function openLightbox(src, href) {
+    closeLightbox();
+    lightbox = document.createElement('div');
+    lightbox.className = 'lightbox' + (href ? ' can-open' : '');
+
+    var img = document.createElement('img');
+    img.src = src;
+    img.alt = '';
+    if (href) {
+      img.title = 'Открыть в новом окне';
+      img.addEventListener('click', function (event) {
+        event.stopPropagation();
+        window.open(href, '_blank', 'noopener');
+      });
+    }
+
+    var close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'close';
+    close.textContent = '×';
+    close.setAttribute('aria-label', 'Закрыть');
+    close.addEventListener('click', function (event) {
+      event.stopPropagation();
+      closeLightbox();
+    });
+
+    lightbox.appendChild(img);
+    lightbox.appendChild(close);
+    lightbox.addEventListener('click', closeLightbox);
+    document.body.appendChild(lightbox);
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', onLightboxKey);
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('[data-zoom]'), function (button) {
+    button.addEventListener('click', function () {
+      var img = button.querySelector('img');
+      if (img) openLightbox(img.src, button.getAttribute('data-href'));
+    });
+  });
+
   if (window.EventSource) {
     var source = new EventSource('/api/v1/forms/' + PAGE + '/stream');
     source.onmessage = function (event) {

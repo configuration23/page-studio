@@ -54,9 +54,9 @@
       kind: 'image',
       name: 'Картинка',
       ic: '▣',
-      props: [],
+      props: ['preview', 'zoom', 'newWindow'],
       hint: 'одна картинка от бэкенда',
-      detail: 'Место под одно изображение. Бэкенд кладёт его запросом post_<id> (байты с Content-Type image/png или другим image/*), портал хранит файл и отдаёт по /media/<id>. Сама страница ничего не запрашивает.'
+      detail: 'Место под одно изображение. Бэкенд кладёт его запросом post_<id> (байты с Content-Type image/png или другим image/*), портал хранит файл и отдаёт по /media/<id>. Сама страница ничего не запрашивает. «Вписывать целиком» — показывать картинку без обрезки (по умолчанию); выключено — заполняет блок с обрезкой. «Увеличивать по клику» — открывает картинку поверх страницы в затемнённом слое. «Открывать в новом окне» — по клику открывается отдельным окном без интерфейса; если включены оба, окно открывается по клику по картинке внутри слоя.'
     },
     {
       kind: 'gallery',
@@ -781,6 +781,15 @@
       }
       if (props.indexOf('limit') >= 0) html += row('штук', numberInput('p:limit', el.props.limit));
       if (props.indexOf('empty') >= 0) html += row('пусто', textInput('p:empty', el.props.empty, 'текст, когда ничего нет'));
+      if (props.indexOf('preview') >= 0) {
+        html += row('вписывать', '<input type="checkbox" data-prop="p:preview"' + (el.props.preview !== false ? ' checked' : '') + '>');
+      }
+      if (props.indexOf('zoom') >= 0) {
+        html += row('по клику', '<input type="checkbox" data-prop="p:zoom"' + (el.props.zoom ? ' checked' : '') + '>');
+      }
+      if (props.indexOf('newWindow') >= 0) {
+        html += row('в новом окне', '<input type="checkbox" data-prop="p:newWindow"' + (el.props.newWindow ? ' checked' : '') + '>');
+      }
     }
 
     html += '<div class="row" style="margin-top:8px"><label></label><button class="btn danger" id="delete-el">Удалить элемент</button></div>';

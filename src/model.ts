@@ -50,6 +50,12 @@ export const propsSchema = z.object({
   hint: z.string().max(300).optional(),
   limit: z.number().int().positive().max(100).optional(),
   empty: z.string().max(200).optional(),
+  /** Картинка: вписывать целиком (по умолчанию) или заполнять с обрезкой. */
+  preview: z.boolean().optional(),
+  /** Картинка: увеличивать по клику в слое поверх страницы. */
+  zoom: z.boolean().optional(),
+  /** Картинка: открывать отдельным окном без интерфейса. */
+  newWindow: z.boolean().optional(),
 });
 
 export type ElementProps = z.infer<typeof propsSchema>;

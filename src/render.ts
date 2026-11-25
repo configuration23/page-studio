@@ -80,10 +80,23 @@ function renderInner(el: Element, value: unknown, items: GalleryItem[]): string 
     }
     case 'image': {
       const imageValue = value as ImageValue;
-      const img = imageValue?.imageId
-        ? `<img src="/media/${escapeHtml(imageValue.imageId)}" alt="${escapeHtml(el.label ?? '')}">`
+      const imageId = imageValue?.imageId ? String(imageValue.imageId) : '';
+      const img = imageId
+        ? `<img src="/media/${escapeHtml(imageId)}" alt="${escapeHtml(el.label ?? '')}">`
         : '<div class="ph">картинки пока нет</div>';
-      return `${label}<div class="imgbox">${img}</div>`;
+      // «вписывать целиком» включено по умолчанию; выключено — заполняет с обрезкой
+      const box = p.preview === false ? 'imgbox cover' : 'imgbox';
+      if (!imageId) return `${label}<div class="${box}">${img}</div>`;
+
+      const src = `/media/${escapeHtml(imageId)}`;
+      if (p.zoom) {
+        const href = p.newWindow ? ` data-href="${src}"` : '';
+        return `${label}<div class="${box}"><button type="button" class="img-open" data-zoom="1"${href} aria-label="Увеличить">${img}</button></div>`;
+      }
+      if (p.newWindow) {
+        return `${label}<div class="${box}"><a class="img-open" href="${src}" target="_blank" rel="noopener" aria-label="Открыть в новом окне">${img}</a></div>`;
+      }
+      return `${label}<div class="${box}">${img}</div>`;
     }
     case 'gallery': {
       const limit = p.limit ?? 24;

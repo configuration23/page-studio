@@ -48,7 +48,7 @@ const TEST_FORM = {
     { id: 'prompt', kind: 'memo', x: 40, y: 40, w: 520, h: 120, label: 'Промпт', props: { placeholder: 'что нарисовать' } },
     { id: 'push', kind: 'button', x: 600, y: 40, w: 200, h: 48, label: 'Нарисовать', target: 'demo', props: { primary: true } },
     { id: 'status', kind: 'status', x: 600, y: 110, w: 260, h: 40 },
-    { id: 'image', kind: 'image', x: 40, y: 190, w: 520, h: 360, label: 'Результат' },
+    { id: 'image', kind: 'image', x: 40, y: 190, w: 520, h: 360, label: 'Результат', props: { zoom: true, newWindow: true } },
     { id: 'gallery', kind: 'gallery', x: 600, y: 190, w: 300, h: 360, label: 'История' },
     { id: 'open', kind: 'onload', x: 40, y: 560, w: 220, h: 32, target: 'demo' },
   ],
@@ -238,6 +238,11 @@ async function main() {
 
     const gallery = await api(`/api/v1/forms/${PAGE}/values/gallery?sid=${sid}`, { headers: auth });
     check('галерея видит картинку', Array.isArray(gallery.body.value) && gallery.body.value.length > 0);
+
+    const pageWithImage = await api(`/p/${PAGE}?sid=${sid}`);
+    const htmlWithImage = String(pageWithImage.body);
+    check('картинка открывается в слое', htmlWithImage.includes('data-zoom="1"'));
+    check('картинка открывается в новом окне', htmlWithImage.includes('data-href="/media/'));
 
     const log = await api('/api/v1/log', { headers: auth });
     check('журнал пишет вызовы', Array.isArray(log.body.entries) && log.body.entries.length > 0);
