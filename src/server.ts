@@ -12,7 +12,7 @@ import { TargetStore } from './targets.js';
 import { SettingsStore } from './settings.js';
 import { PageStateStore, PAGE_STATES } from './pagestate.js';
 import { guidePage } from './help.js';
-import { StateStore } from './state.js';
+import { StateStore, UI_CHANGE_ID } from './state.js';
 import { ImageStore } from './store.js';
 import { CallLog } from './log.js';
 import { renderIndex, renderNotFound, renderPage } from './render.js';
@@ -42,6 +42,14 @@ const pageStates = new PageStateStore(config.dataDir);
 function indexHeading(): { title?: string; lead?: string } {
   const { indexTitle, indexLead } = settings.get();
   return { title: indexTitle, lead: indexLead };
+}
+
+/** Что на странице скрыто и что неактивно — прямо из настроек элементов. */
+function effectiveUi(form: Form): { hidden: string[]; disabled: string[] } {
+  return {
+    hidden: form.elements.filter((el) => el.hidden).map((el) => el.id),
+    disabled: form.elements.filter((el) => el.disabled).map((el) => el.id),
+  };
 }
 
 function indexItems(): Array<{
@@ -368,15 +376,17 @@ app.post('/api/v1/forms/:slug/state', async (req, reply) => {
 
 app.get('/api/v1/forms/:slug/ui', async (req) => {
   const form = getForm((req.params as { slug: string }).slug);
-  const sid = requireSid(req);
-  return { value: state.ui(form, sid) };
+  return { value: effectiveUi(form) };
 });
 
+/**
+ * Скрыть/показать элемент из бэкенда. Меняется то же свойство, что и галочка в
+ * админке: страница одна на всех, поэтому изменение видят все посетители.
+ */
 app.post('/api/v1/forms/:slug/ui/:id', async (req, reply) => {
   if (!authorized(req)) throw new HttpError(401, 'нужен токен портала');
   const form = getForm((req.params as { slug: string }).slug);
   const el = getElement(form, (req.params as { slug: string; id: string }).id);
-  const sid = requireSid(req);
   const body = (req.body ?? {}) as { hidden?: unknown; disabled?: unknown };
 
   const patch: { hidden?: boolean; disabled?: boolean } = {};
@@ -386,7 +396,13 @@ app.post('/api/v1/forms/:slug/ui/:id', async (req, reply) => {
     throw new HttpError(400, 'нужен hidden или disabled: true/false');
   }
 
-  const value = state.setUiElement(form, sid, el.id, patch);
+  if (patch.hidden !== undefined) el.hidden = patch.hidden;
+  if (patch.disabled !== undefined) el.disabled = patch.disabled;
+
+  writeFileSync(join(config.formsDir, `${form.slug}.yaml`), YAML.stringify(compactForm(form)), 'utf8');
+  const value = effectiveUi(form);
+  state.broadcast(form.slug, { id: UI_CHANGE_ID, value, version: 0 });
+
   log.add({
     kind: 'value',
     page: form.slug,
@@ -394,7 +410,7 @@ app.post('/api/v1/forms/:slug/ui/:id', async (req, reply) => {
     ok: true,
     note: `скрыто ${value.hidden.length}, неактивно ${value.disabled.length}`,
   });
-  return reply.send({ value });
+  return reply.send({ value, element: { id: el.id, hidden: el.hidden, disabled: el.disabled } });
 });
 
 app.get('/health', async () => ({
@@ -427,7 +443,7 @@ app.get('/p/:slug', async (req, reply) => {
         footer,
         nav,
         badge: isDraft ? 'черновик' : '',
-        ui: state.ui(form, sid),
+        ui: effectiveUi(form),
       }),
     );
 });

@@ -1,4 +1,4 @@
-import { EventEmitter } from 'node:events';
+﻿import { EventEmitter } from 'node:events';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Form } from './model.js';
@@ -8,7 +8,7 @@ export type StatusValue = { state: 'idle' | 'queued' | 'running' | 'done' | 'fai
 export type ImageValue = { imageId: string } | null;
 export type Change = { id: string; value: unknown; version: number };
 
-/** Видимость и активность, которой управляет бэкенд во время работы. */
+/** Итоговая видимость страницы: что скрыто и что неактивно (по настройкам формы). */
 export type UiState = { hidden: string[]; disabled: string[] };
 
 /** Служебный ключ в снимке состояния: в значения элементов не попадает. */
@@ -140,49 +140,6 @@ export class StateStore {
     return this.values(form, sid)[id];
   }
 
-  /** Текущая видимость/активность: пустые списки, если бэкенд ещё не присылал. */
-  ui(form: Form, sid: string): UiState {
-    const raw = this.valuesRef(form, sid)[UI_KEY] as UiState | undefined;
-    return {
-      hidden: Array.isArray(raw?.hidden) ? raw.hidden : [],
-      disabled: Array.isArray(raw?.disabled) ? raw.disabled : [],
-    };
-  }
-
-  /** Служебное состояние видимости — только для внутренней работы. */
-  setUi(form: Form, sid: string, patch: Partial<UiState>): UiState {
-    const raw = this.valuesRef(form, sid);
-    const current = this.ui(form, sid);
-    const next: UiState = {
-      hidden: patch.hidden ?? current.hidden,
-      disabled: patch.disabled ?? current.disabled,
-    };
-    raw[UI_KEY] = next;
-    this.version += 1;
-    const change: Change = { id: UI_CHANGE_ID, value: next, version: this.version };
-    this.persist(form.slug, sid, raw);
-    this.emitter.emit(this.key(form.slug, sid), change);
-    return next;
-  }
-
-  /** Бэкенд включает/выключает один элемент, не трогая остальные. */
-  setUiElement(
-    form: Form,
-    sid: string,
-    id: string,
-    patch: { hidden?: boolean; disabled?: boolean },
-  ): UiState {
-    const current = this.ui(form, sid);
-    const hidden = new Set(current.hidden);
-    const disabled = new Set(current.disabled);
-
-    if (patch.hidden === true) hidden.add(id);
-    else if (patch.hidden === false) hidden.delete(id);
-    if (patch.disabled === true) disabled.add(id);
-    else if (patch.disabled === false) disabled.delete(id);
-
-    return this.setUi(form, sid, { hidden: [...hidden], disabled: [...disabled] });
-  }
 
   set(form: Form, sid: string, id: string, value: unknown): Change {
     const values = this.valuesRef(form, sid);
@@ -210,6 +167,16 @@ export class StateStore {
   publish(slug: string, sid: string, change: Change): void {
     this.version += 1;
     this.emitter.emit(this.key(slug, sid), { ...change, version: this.version });
+  }
+
+  /** Изменение касается всей страницы: сообщаем всем её открытым сессиям. */
+  broadcast(slug: string, change: Change): void {
+    this.version += 1;
+    const sessions = this.byForm.get(slug);
+    if (!sessions) return;
+    for (const sid of sessions.keys()) {
+      this.emitter.emit(this.key(slug, sid), { ...change, version: this.version });
+    }
   }
 
   /** Удаление страницы: убираем значения всех её сессий и снимки с диска. */

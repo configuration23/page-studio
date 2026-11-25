@@ -224,54 +224,60 @@ async function main() {
     check('скрытый элемент помечен', /class="el[^"]*is-hidden[^"]*" data-id="ghost"/.test(pageHtml));
     check('неактивный элемент помечен', /class="el[^"]*is-disabled[^"]*" data-id="off"/.test(pageHtml));
 
-    const uiAnon = await api(`/api/v1/forms/${PAGE}/ui/prompt?sid=${sid}`, {
+    const uiAnon = await api(`/api/v1/forms/${PAGE}/ui/prompt`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ hidden: true }),
     });
     check('скрытие без токена запрещено', uiAnon.res.status === 401, `код ${uiAnon.res.status}`);
 
-    const hidePrompt = await api(`/api/v1/forms/${PAGE}/ui/prompt?sid=${sid}`, {
+    const hidePrompt = await api(`/api/v1/forms/${PAGE}/ui/prompt`, {
       method: 'POST',
       headers: json,
       body: JSON.stringify({ hidden: true }),
     });
     check(
-      'элемент скрывается по одному',
-      hidePrompt.res.ok && hidePrompt.body.value?.hidden?.join() === 'prompt',
+      'элемент скрывается из бэкенда',
+      hidePrompt.res.ok && hidePrompt.body.value?.hidden?.includes('prompt'),
       JSON.stringify(hidePrompt.body.value),
     );
 
-    const disableStatus = await api(`/api/v1/forms/${PAGE}/ui/status?sid=${sid}`, {
-      method: 'POST',
-      headers: json,
-      body: JSON.stringify({ disabled: true }),
-    });
-    check(
-      'второй элемент не сбрасывает первый',
-      disableStatus.body.value?.hidden?.join() === 'prompt' &&
-        disableStatus.body.value?.disabled?.join() === 'status',
-      JSON.stringify(disableStatus.body.value),
-    );
-
-    const uiRead = await api(`/api/v1/forms/${PAGE}/ui?sid=${sid}`);
-    check('видимость читается', uiRead.body.value?.hidden?.join() === 'prompt');
-
-    const pageWithUi = await api(`/p/${PAGE}?sid=${sid}`);
-    const uiHtml = String(pageWithUi.body);
-    check('скрытый бэкендом элемент не показывается', /is-hidden[^"]*" data-id="prompt"|data-id="prompt"[^>]*is-hidden/.test(uiHtml));
-    check('отключённый бэкендом элемент серый', /is-disabled[^"]*" data-id="status"|data-id="status"[^>]*is-disabled/.test(uiHtml));
-
-    const showAgain = await api(`/api/v1/forms/${PAGE}/ui/prompt?sid=${sid}`, {
+    const showGhost = await api(`/api/v1/forms/${PAGE}/ui/ghost`, {
       method: 'POST',
       headers: json,
       body: JSON.stringify({ hidden: false }),
     });
     check(
-      'элемент возвращается, второй остаётся неактивным',
-      !showAgain.body.value?.hidden?.length && showAgain.body.value?.disabled?.join() === 'status',
-      JSON.stringify(showAgain.body.value),
+      'бэкенд показывает статически скрытый элемент',
+      showGhost.res.ok && !showGhost.body.value?.hidden?.includes('ghost'),
+      JSON.stringify(showGhost.body.value),
     );
+
+    // админка и API правят одно и то же свойство: админ видит изменение
+    const adminView = await fetch(`${BASE}/api/v1/admin/forms/${PAGE}`, { headers: { cookie: session } });
+    const adminForm = await adminView.json();
+    const ghostElement = adminForm.form?.elements?.find((el) => el.id === 'ghost');
+    check('админка видит то же значение', ghostElement?.hidden === false, `hidden=${ghostElement?.hidden}`);
+
+    const uiRead = await api(`/api/v1/forms/${PAGE}/ui`);
+    check('видимость читается', uiRead.body.value?.hidden?.includes('prompt'));
+
+    const pageWithUi = await api(`/p/${PAGE}?sid=${sid}`);
+    const uiHtml = String(pageWithUi.body);
+    check('скрытый бэкендом элемент не показывается', /is-hidden[^"]*" data-id="prompt"|data-id="prompt"[^>]*is-hidden/.test(uiHtml));
+    check('показанный бэкендом элемент виден', !/is-hidden[^"]*" data-id="ghost"|data-id="ghost"[^>]*is-hidden/.test(uiHtml));
+
+    // возвращаем как было, чтобы проверка не зависела от порядка
+    await api(`/api/v1/forms/${PAGE}/ui/prompt`, {
+      method: 'POST',
+      headers: json,
+      body: JSON.stringify({ hidden: false }),
+    });
+    await api(`/api/v1/forms/${PAGE}/ui/ghost`, {
+      method: 'POST',
+      headers: json,
+      body: JSON.stringify({ hidden: true }),
+    });
 
     const longText = 'строка текста с переносами.\n'.repeat(120);
     const setDoc = await api(`/api/v1/forms/${PAGE}/values/doc?sid=${sid}`, {

@@ -203,9 +203,9 @@ function renderInner(el: Element, value: unknown, items: GalleryItem[]): string 
 
 function renderElement(el: Element, value: unknown, items: GalleryItem[], ui?: UiState): string {
   const isOnload = el.kind === 'onload';
-  // скрытие и активность: статические из настроек плюс те, что прислал бэкенд
-  const hidden = el.hidden || (ui?.hidden.includes(el.id) ?? false);
-  const disabled = el.disabled || (ui?.disabled.includes(el.id) ?? false);
+  // ui — уже итог: настройки элемента с учётом переопределений бэкенда
+  const hidden = ui ? ui.hidden.includes(el.id) : el.hidden;
+  const disabled = ui ? ui.disabled.includes(el.id) : el.disabled;
   const style = [
     `left:${el.x}px`,
     `top:${el.y}px`,
