@@ -425,7 +425,7 @@ ${CSS}
   <div class="list">
     ${cards}
   </div>
-  <div class="admin"><a href="/admin">админка — собрать страницу</a></div>
+  <div class="admin"><a href="/admin">Конструктор страниц</a></div>
 </div>
 <script>
 (function () {

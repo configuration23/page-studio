@@ -748,7 +748,6 @@
     html += row('id', '<input type="text" data-prop="id" value="' + escapeHtml(el.id) + '" title="имя элемента = имя метода; переименование меняет контракт с бэкендом">');
     html += '<div class="muted" style="padding:0 14px 8px">метод: ' + escapeHtml(state.slug) + '.<b>' + escapeHtml(el.id) + '</b></div>';
     html += row('вид', '<input type="text" value="' + escapeHtml(info.name) + '" disabled>');
-    html += '<details class="help"><summary>? что это и как заполнять</summary><div>' + escapeHtml(info.detail) + '</div></details>';
 
     if (EVENTS[el.kind]) {
       var options = ['<option value="">— не отправлять —</option>']
@@ -854,13 +853,7 @@
 
     html += '<div class="row" style="margin-top:8px"><label></label><button class="btn danger" id="delete-el">Удалить элемент</button></div>';
 
-    html += '<div class="methods"><h3 style="padding:0 0 6px">Методы</h3>';
-    methodsFor(el).forEach(function (method) {
-      html +=
-        '<div class="m"><span><b>' + method.title + '</b><br>' + escapeHtml(method.name) + '</span>' +
-        '<button data-copy="' + escapeHtml(method.name) + '">копировать</button></div>';
-    });
-    html += '<div class="muted">Это то, что обвязывается в бэкенде. Событие несёт значения всех полей.</div></div>';
+    html += '<div class="methods" data-help-for="' + escapeHtml(el.id) + '"><h3 style="padding:0 0 6px">Справка</h3><div class="muted">загружается…</div></div>';
 
     var old = aliasesOf(el.id);
     if (old.length) {
@@ -868,6 +861,22 @@
     }
 
     inspector.innerHTML = html;
+    loadHelp(el.id);
+  }
+
+  /** Техническая справка приходит с сервера: один источник — src/help.ts. */
+  function loadHelp(id) {
+    var box = inspector.querySelector('[data-help-for]');
+    if (!box || !state.slug) return;
+    api('/api/v1/admin/forms/' + state.slug + '/help/' + encodeURIComponent(id))
+      .then(function (data) {
+        // пока грузили, могли выбрать другой элемент
+        if (!box.isConnected || state.selected !== id) return;
+        box.innerHTML = data.html;
+      })
+      .catch(function (err) {
+        if (box.isConnected) box.innerHTML = '<div class="muted">справка недоступна: ' + escapeHtml(err.message) + '</div>';
+      });
   }
 
   function updateRectInputs(el) {

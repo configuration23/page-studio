@@ -11,6 +11,7 @@ import { pushEvent } from './push.js';
 import { TargetStore } from './targets.js';
 import { SettingsStore } from './settings.js';
 import { PageStateStore, PAGE_STATES } from './pagestate.js';
+import { elementHelpHtml } from './help.js';
 import { StateStore } from './state.js';
 import { ImageStore } from './store.js';
 import { CallLog } from './log.js';
@@ -708,6 +709,16 @@ function adminForm(slug: string): Form {
   if (!form) throw new HttpError(404, `формы «${slug}» нет`);
   return form;
 }
+
+app.get('/api/v1/admin/forms/:slug/help/:id', async (req, reply) => {
+  requireAdminApi(req, reply);
+  const params = req.params as { slug: string; id: string };
+  // черновик важнее: справка должна описывать то, что сейчас в редакторе
+  const form = drafts.get(params.slug) ?? getForm(params.slug);
+  const el = resolveElement(form, params.id);
+  if (!el) throw new HttpError(404, `в «${form.slug}» нет элемента «${params.id}»`);
+  return { html: elementHelpHtml(form, el) };
+});
 
 app.get('/api/v1/admin/forms', async (req, reply) => {
   requireAdminApi(req, reply);
