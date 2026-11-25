@@ -152,6 +152,10 @@ async function main() {
       pageHtml.includes('href="/pages"') && pageHtml.includes('К списку страниц'),
     );
 
+    // оформление текста: маркдаун и выравнивание (до того, как бэкенд перезапишет текст)
+    check('маркдаун превращается в разметку', pageHtml.includes('<strong>текст</strong>'));
+    check('выравнивание попадает в разметку', pageHtml.includes('text-align:center'));
+
     const index = await api('/pages');
     check('список страниц доступен', index.res.ok && String(index.body).includes(`/p/${PAGE}`));
 
@@ -228,11 +232,6 @@ async function main() {
 
     const pageWithDoc = await api(`/p/${PAGE}?sid=${sid}`);
     check('текст с бэкенда виден на странице', String(pageWithDoc.body).includes('строка текста с переносами.'));
-
-    // оформление текста: маркдаун и выравнивание
-    const styled = await api(`/p/${PAGE}?sid=${sid}`);
-    check('маркдаун превращается в разметку', String(styled.body).includes('<strong>текст</strong>'));
-    check('выравнивание попадает в разметку', String(styled.body).includes('text-align:center'));
 
     // вид списка страниц: меняем, проверяем и возвращаем как было
     const settingsBefore = await (await fetch(`${BASE}/api/v1/admin/settings`, { headers: { cookie: session } })).json();
